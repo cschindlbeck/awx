@@ -1,0 +1,36 @@
+name: Bats Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  bats-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v5
+
+      - name: "Install Dependencies"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fzf
+
+      - name: "Setup Bats and Bats Libs"
+        id: setup-bats
+        uses: bats-core/bats-action@4.0.0
+        with:
+          support-path: "${{ github.workspace }}/tests/bats-support"
+          assert-path: "${{ github.workspace }}/tests/bats-assert"
+          detik-path: "${{ github.workspace }}/tests/bats-detik"
+          file-path: "${{ github.workspace }}/tests/bats-file"
+
+      - name: "Run Bats Tests"
+        shell: bash
+        env:
+          BATS_LIB_PATH: ${{ steps.setup-bats.outputs.lib-path }}
+          TERM: xterm
+        run: bats tests/
