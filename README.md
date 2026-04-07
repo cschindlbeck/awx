@@ -26,7 +26,8 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 `awx` is a versatile script for managing AWS profiles and EKS kubeconfig contexts. Below are the primary commands and their purposes:
 
 ```sh
-awx use         # Select AWS profile using fuzzy finder (default command if none is provided)
+awx             # Select AWS profile using fuzzy finder
+awx use         # Same as awx
 awx whoami      # Show current AWS identity
 awx eks list    # List available EKS clusters for active profile
 awx eks update  # Update kubeconfig for a specific cluster only
@@ -69,7 +70,8 @@ source $(pwd)/awx
 
 ## Testing and Quality
 
-This project uses both manual test scripts and automated pre-commit hooks to ensure code quality and correct behavior. **All contributors should run both before pushing or submitting a pull request.**
+This project uses automated tests and pre-commit hooks that run in CI to ensure code quality and correct behavior.
+**All contributors should run both locally before pushing or submitting a pull request.**
 
 ### 1. Automated Tests (bats)
 - The main suite is written in `bats-core`. To use:
