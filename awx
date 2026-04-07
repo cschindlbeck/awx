@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+
+_awx_is_sourced=0
+(return 0 2>/dev/null) && _awx_is_sourced=1 || true
+
+if [[ "$_awx_is_sourced" -eq 0 ]]; then
+  set -euo pipefail
+fi
+
+DEFAULT_REGION="${AWS_REGION:-eu-central-1}"
+
+log() {
+  printf "[INFO] %s\n" "$*"
+}
+
+warn() {
+  printf "[WARN] %s\n" "$*" >&2
+}
+
+error() {
+  printf "[ERROR] %s\n" "$*" >&2
+}
+
+die() {
+  error "$*"
+  return 1
+}
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "Missing dependency: $1"
+}
+
+check_deps() {
+  require_cmd aws
+  require_cmd fzf
+  require_cmd jq
+}
+
+aws_ensure_session() {
+  local profile="$1"
+
+  # Verify SSO config first
+  local sso_test_err
+  sso_test_err="$(AWS_PAGER="" command aws configure get sso_start_url --profile "$profile" 2>&1 || true)"
+  if [[ -z "${sso_test_err// /}" ]]; then
+    die "Profile '$profile' is missing required SSO configuration.\nRun: aws configure sso --profile $profile"
+  fi
+
+  if command aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  log "SSO session expired or not authenticated for profile: $profile"
+  command aws sso login --profile "$profile" >/dev/null || die "AWS SSO login failed for profile: $profile"
+}
+
+aws_call() {
+  local profile="$1"
+  shift
+
+  aws_ensure_session "$profile"
+  AWS_PAGER="" command aws --profile "$profile" "$@"
+}
+
+select_profile() {
+  command aws configure list-profiles | fzf --prompt="Select AWS profile: "
+}
+
+list_clusters() {
+  local profile="$1"
+  local out
+  out="$(aws_call "$profile" eks list-clusters --region "$DEFAULT_REGION" --output json 2> >(tee /tmp/awx_last_err))" || {
+    cat /tmp/awx_last_err >&2
+    die "Could not list EKS clusters. Is your profile valid and SSO session authenticated?"
+  }
+  # Defensive parse
+  jq -e .clusters >/dev/null <<<"$out" || die "Invalid EKS cluster output or auth failed."
+  jq -r '.clusters[]?' <<<"$out"
+}
+
+select_cluster_for_profile() {
+  local profile="$1"
+  local clusters
+  local cluster_count
+
+  clusters="$(list_clusters "$profile")"
+  if [[ -z "$clusters" ]]; then
+    warn "No EKS clusters found for profile: $profile"
+    return 1
+  fi
+
+  cluster_count="$(printf "%s\n" "$clusters" | wc -l | tr -d ' ')"
+
+  if [[ "$cluster_count" -eq 1 ]]; then
+    printf "%s\n" "$clusters"
+    return 0
+  fi
+
+  printf "%s\n" "$clusters" | fzf --prompt="Select EKS cluster: "
+}
+
+awx_use() {
+  local profile
+  local cluster
+
+  check_deps
+
+  profile="$(select_profile || true)"
+  if [[ -z "$profile" ]]; then
+    warn "No profile selected; keeping current AWS_PROFILE: ${AWS_PROFILE:-<unset>}"
+    return 1
+  fi
+
+  export AWS_PROFILE="$profile"
+  export AWS_REGION="$DEFAULT_REGION"
+
+  log "Using profile: $AWS_PROFILE (region: $AWS_REGION)"
+
+  if ! cluster="$(select_cluster_for_profile "$profile")"; then
+    return 0
+  fi
+
+  log "Updating kubeconfig for cluster: $cluster"
+  aws_call "$profile" eks update-kubeconfig \
+    --region "$DEFAULT_REGION" \
+    --name "$cluster" \
+    --alias "$profile" >/dev/null
+  log "Kubeconfig updated successfully"
+}
+
+awx_whoami() {
+  local profile="${AWS_PROFILE:-}"
+
+  check_deps
+
+  if [[ -z "$profile" ]]; then
+    error "AWS_PROFILE not set. Please run: awx use"; return 1
+  fi
+  aws_call "$profile" sts get-caller-identity
+}
+
+awx_eks() {
+  local subcommand="${1:-}"
+  local profile="${AWS_PROFILE:-}"
+  local cluster
+
+  check_deps
+
+if [[ -z "$profile" ]]; then
+    error "AWS_PROFILE not set. Please run: awx use"; return 1
+fi
+
+  if [[ -z "$subcommand" ]]; then
+    error "Missing EKS subcommand. Usage: awx eks [list|update]"
+    return 1
+  fi
+
+  case "$subcommand" in
+  list)
+    list_clusters "$profile"
+    ;;
+  update)
+    cluster="$(select_cluster_for_profile "$profile")" || die "No EKS cluster selected"
+    log "Updating kubeconfig for cluster: $cluster"
+    aws_call "$profile" eks update-kubeconfig \
+      --region "$DEFAULT_REGION" \
+      --name "$cluster" \
+      --alias "$profile" >/dev/null
+    log "Kubeconfig updated successfully"
+    ;;
+  *)
+    die "Unknown eks subcommand: ${subcommand:-<empty>} (expected: list|update)"
+    ;;
+  esac
+}
+
+show_help() {
+  echo "Usage: awx [command]"
+  echo "Commands:"
+  echo "  use           Select AWS profile using fuzzy finder"
+  echo "  whoami        Display current AWS identity"
+  echo "  eks list      List EKS clusters for the active profile"
+  echo "  eks update    Update kubeconfig for a specific EKS cluster"
+  echo "  help | -h     Show this help message"
+}
+
+awx() {
+  local command="${1:-use}"
+
+  case "$command" in
+  use)
+    awx_use
+    ;;
+  whoami)
+    awx_whoami
+    ;;
+  eks)
+    shift || true
+    awx_eks "$@"
+    ;;
+  help|-h)
+    show_help
+    ;;
+  *)
+    die "Unknown command: $command (supported: use|whoami|eks|help|-h)"
+    ;;
+  esac
+}
+
+if [[ "$_awx_is_sourced" -eq 0 ]]; then
+  awx "$@"
+fi
