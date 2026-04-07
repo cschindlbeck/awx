@@ -96,6 +96,14 @@ This project uses both manual test scripts and automated pre-commit hooks to ens
   bats tests/whoami.bats
   ```
 
+Sample bats output:
+```text
+1..4
+ok 1 awx whoami with valid AWS_PROFILE
+not ok 2 awx whoami with missing AWS_PROFILE
+...
+```
+
 ### 2. Pre-commit Hooks
 Automated quality checks, formatting, and linting are enforced by [pre-commit](https://pre-commit.com/).
 
@@ -106,14 +114,6 @@ Automated quality checks, formatting, and linting are enforced by [pre-commit](h
 - These hooks run automatically on commit/pull request via GitHub Actions. **You must pass these checks for your contributions to be accepted.**
 
 **Best practice: Always run both the test suite and pre-commit before committing or opening a PR.**
-
-Sample bats output:
-```text
-1..4
-ok 1 awx whoami with valid AWS_PROFILE
-not ok 2 awx whoami with missing AWS_PROFILE
-...
-```
 
 ## Tips & Behavior
 - If required tools (`aws`, `fzf`, or `jq`) are missing, `awx` will tell you exactly what to install.
@@ -128,7 +128,7 @@ To develop locally:
 1. Fork & clone.
 2. Install dependencies (see above).
 3. Make changes on a new branch.
-4. Run all hooks before pushing:
+4. Run all tests and hooks as described above before pushing:
 ```sh
 pre-commit run --all-files
 ```
