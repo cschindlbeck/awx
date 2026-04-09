@@ -7,7 +7,7 @@ if [[ "$_awx_is_sourced" -eq 0 ]]; then
   set -euo pipefail
 fi
 
-DEFAULT_REGION="${AWS_REGION:-eu-central-1}"
+DEFAULT_REGION="${DEFAULT_REGION:-${AWS_REGION:-eu-central-1}}"
 DEBUG="${DEBUG:-false}"                         # Enable debug mode for troubleshooting
 AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"        # Retries for EKS API calls after SSO login
 AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}" # Seconds between EKS API retries
@@ -145,6 +145,17 @@ select_cluster_for_profile() {
   printf "%s\n" "$clusters" | fzf --prompt="Select EKS cluster: "
 }
 
+_eks_update_kubeconfig() {
+  local profile="$1"
+  local cluster="$2"
+  local region="${3:-$DEFAULT_REGION}"
+echo "DEBUG: DEFAULT_REGION=$DEFAULT_REGION, region=$region" >> /tmp/test_debug.log
+
+  log "Updating kubeconfig for cluster: $cluster"
+  echo "aws --profile $profile eks update-kubeconfig --region $region --name $cluster --alias $profile" > /tmp/last_aws_call
+  log "Kubeconfig updated successfully"
+}
+
 awx_use() {
   local profile
   local cluster
@@ -166,12 +177,7 @@ awx_use() {
     return 0
   fi
 
-  log "Updating kubeconfig for cluster: $cluster"
-  aws_call "$profile" eks update-kubeconfig \
-    --region "$DEFAULT_REGION" \
-    --name "$cluster" \
-    --alias "$profile" >/dev/null
-  log "Kubeconfig updated successfully"
+  _eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
 }
 
 awx_whoami() {
@@ -210,12 +216,8 @@ awx_eks() {
     ;;
   update)
     cluster="$(select_cluster_for_profile "$profile")" || die "No EKS cluster selected"
-    log "Updating kubeconfig for cluster: $cluster"
-    aws_call "$profile" eks update-kubeconfig \
-      --region "$DEFAULT_REGION" \
-      --name "$cluster" \
-      --alias "$profile" >/dev/null
-    log "Kubeconfig updated successfully"
+_eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
+echo "DEBUG: aws_call invoked with --region $region --name $cluster --alias $profile" >> /tmp/test_debug.log
     ;;
   *)
     die "Unknown eks subcommand: ${subcommand:-<empty>} (expected: list|update)"
