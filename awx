@@ -11,6 +11,7 @@ DEFAULT_REGION="${AWS_REGION:-eu-central-1}"
 DEBUG="${DEBUG:-false}"                         # Enable debug mode for troubleshooting
 AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"        # Retries for EKS API calls after SSO login
 AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}" # Seconds between EKS API retries
+AWX_STS_RETRIES="${AWX_STS_RETRIES:-10}"        # Retries waiting for STS after SSO login
 
 log() {
   printf "[INFO] %s\n" "$*"
@@ -54,17 +55,24 @@ aws_ensure_session() {
   fi
 
   log "SSO session expired or not authenticated for profile: $profile"
-  aws sso login --profile "$profile" >/dev/null || die "AWS SSO login failed for profile: $profile"
+  aws sso login --profile "$profile" || die "AWS SSO login failed for profile: $profile"
 
-  # Add a short retry loop to ensure the session is ready
-  retries=3
-  for ((i = 0; i < retries; i++)); do
+  # Retry loop to wait for SSO credentials to propagate after login.
+  # 10 attempts x 1s covers slow browser confirmation without hanging forever.
+  local sts_ready=0
+  for ((i = 0; i < AWX_STS_RETRIES; i++)); do
     if aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
+      sts_ready=1
       break
     fi
     log "Waiting for SSO session to stabilize..."
     sleep 1
   done
+
+  if [[ "$sts_ready" -eq 0 ]]; then
+    die "SSO session not ready after login. Please run 'awx use' again."
+    return 1
+  fi
 }
 
 aws_call() {
