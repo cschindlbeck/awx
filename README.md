@@ -32,7 +32,7 @@ awx whoami      # Show current AWS identity
 awx eks list    # List available EKS clusters for active profile
 awx eks update  # Update kubeconfig for a specific cluster only
 awx help or -h  # Show detailed usage instructions
-awx logout     # Logout of the current AWS SSO session
+awx logout      # Logout of the current AWS SSO session
 ```
 
 ### Example Workflow
