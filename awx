@@ -8,6 +8,10 @@ if [[ "$_awx_is_sourced" -eq 0 ]]; then
 fi
 
 DEFAULT_REGION="${AWS_REGION:-eu-central-1}"
+DEBUG="${DEBUG:-false}"                         # Enable debug mode for troubleshooting
+AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"        # Retries for EKS API calls after SSO login
+AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}" # Seconds between EKS API retries
+AWX_STS_RETRIES="${AWX_STS_RETRIES:-10}"        # Retries waiting for STS after SSO login
 
 log() {
   printf "[INFO] %s\n" "$*"
@@ -41,17 +45,34 @@ aws_ensure_session() {
 
   # Verify SSO config first
   local sso_test_err
-  sso_test_err="$(AWS_PAGER="" command aws configure get sso_start_url --profile "$profile" 2>&1 || true)"
+  sso_test_err="$(AWS_PAGER="" aws configure get sso_start_url --profile "$profile" 2>&1 || true)"
   if [[ -z "${sso_test_err// /}" ]]; then
     die "Profile '$profile' is missing required SSO configuration.\nRun: aws configure sso --profile $profile"
   fi
 
-  if command aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
+  if aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
     return 0
   fi
 
   log "SSO session expired or not authenticated for profile: $profile"
-  command aws sso login --profile "$profile" >/dev/null || die "AWS SSO login failed for profile: $profile"
+  aws sso login --profile "$profile" || die "AWS SSO login failed for profile: $profile"
+
+  # Retry loop to wait for SSO credentials to propagate after login.
+  # 10 attempts x 1s covers slow browser confirmation without hanging forever.
+  local sts_ready=0
+  for ((i = 0; i < AWX_STS_RETRIES; i++)); do
+    if aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
+      sts_ready=1
+      break
+    fi
+    log "Waiting for SSO session to stabilize..."
+    sleep 1
+  done
+
+  if [[ "$sts_ready" -eq 0 ]]; then
+    die "SSO session not ready after login. Please run 'awx use' again."
+    return 1
+  fi
 }
 
 aws_call() {
@@ -59,22 +80,47 @@ aws_call() {
   shift
 
   aws_ensure_session "$profile"
-  AWS_PAGER="" command aws --profile "$profile" "$@"
+  AWS_PAGER="" aws --profile "$profile" "$@"
 }
 
 select_profile() {
-  command aws configure list-profiles | fzf --prompt="Select AWS profile: "
+  aws configure list-profiles | fzf --prompt="Select AWS profile: "
 }
 
 list_clusters() {
   local profile="$1"
-  local out
-  out="$(aws_call "$profile" eks list-clusters --region "$DEFAULT_REGION" --output json 2> >(tee /tmp/awx_last_err))" || {
+  local out=""
+  local i
+
+  # Ensure the SSO session is valid before attempting EKS API calls.
+  # stdout is redirected to stderr so that log messages (e.g. "SSO session
+  # expired") are shown to the user but do NOT flow into the stdout of this
+  # function, which callers capture via $() to parse cluster names.
+  aws_ensure_session "$profile" >&2 || { die "Session unavailable for profile: $profile"; return 1; }
+
+  for ((i = 1; i <= AWX_EKS_RETRIES; i++)); do
+    if out="$(AWS_PAGER="" aws --profile "$profile" eks list-clusters \
+      --region "$DEFAULT_REGION" --output json 2>/tmp/awx_last_err)" &&
+      jq -e .clusters >/dev/null 2>&1 <<<"$out"; then
+      break
+    fi
+
+    if [[ $i -lt $AWX_EKS_RETRIES ]]; then
+      warn "EKS API not ready yet (attempt $i/$AWX_EKS_RETRIES), retrying in ${AWX_EKS_RETRY_DELAY}s..."
+      sleep "$AWX_EKS_RETRY_DELAY"
+    fi
+  done
+
+  if ! jq -e .clusters >/dev/null 2>&1 <<<"$out"; then
     cat /tmp/awx_last_err >&2
-    die "Could not list EKS clusters. Is your profile valid and SSO session authenticated?"
-  }
-  # Defensive parse
-  jq -e .clusters >/dev/null <<<"$out" || die "Invalid EKS cluster output or auth failed."
+    die "Invalid API response: Failed to parse AWS EKS clusters. Check authentication and network connectivity."
+    return 1
+  fi
+
+  if [[ "$DEBUG" == "true" ]]; then
+    log "AWS RAW RESPONSE: $out"
+  fi
+
   jq -r '.clusters[]?' <<<"$out"
 }
 
@@ -134,8 +180,10 @@ awx_whoami() {
   check_deps
 
   if [[ -z "$profile" ]]; then
-    error "AWS_PROFILE not set. Please run: awx use"; return 1
+    error "AWS_PROFILE not set. Please run: awx use"
+    return 1
   fi
+
   aws_call "$profile" sts get-caller-identity
 }
 
@@ -146,9 +194,10 @@ awx_eks() {
 
   check_deps
 
-if [[ -z "$profile" ]]; then
-    error "AWS_PROFILE not set. Please run: awx use"; return 1
-fi
+  if [[ -z "$profile" ]]; then
+    error "AWS_PROFILE not set. Please run: awx use"
+    return 1
+  fi
 
   if [[ -z "$subcommand" ]]; then
     error "Missing EKS subcommand. Usage: awx eks [list|update]"
@@ -174,6 +223,23 @@ fi
   esac
 }
 
+awx_logout() {
+  local profile="${AWS_PROFILE:-}"
+
+  if [[ -z "$profile" ]]; then
+    error "AWS_PROFILE not set. Please run: awx use"
+    return 1
+  fi
+
+  if aws sso logout --profile "$profile" >/dev/null 2>&1; then
+    unset AWS_PROFILE
+    log "Logged out of SSO session and cleared AWS_PROFILE for profile: $profile"
+  else
+    error "Failed to log out of SSO session for profile: $profile"
+    return 1
+  fi
+}
+
 show_help() {
   echo "Usage: awx [command]"
   echo "Commands:"
@@ -181,6 +247,7 @@ show_help() {
   echo "  whoami        Display current AWS identity"
   echo "  eks list      List EKS clusters for the active profile"
   echo "  eks update    Update kubeconfig for a specific EKS cluster"
+  echo "  logout        Logout of the current AWS SSO session"
   echo "  help | -h     Show this help message"
 }
 
@@ -198,11 +265,14 @@ awx() {
     shift || true
     awx_eks "$@"
     ;;
-  help|-h)
+  logout)
+    awx_logout
+    ;;
+  help | -h)
     show_help
     ;;
   *)
-    die "Unknown command: $command (supported: use|whoami|eks|help|-h)"
+    die "Unknown command: $command (supported: use|whoami|eks|logout|help|-h)"
     ;;
   esac
 }

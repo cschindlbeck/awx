@@ -78,6 +78,7 @@ There is no automated test suite. Manual behavior validation is expected:
 ## 🖋️ Coding and Code Style Guidelines
 
 ### General Principles
+- **DRY Principle**: Adhere to "Don't Repeat Yourself" to reduce code duplication and ensure maintainability.
 - **Bash-only**: All project logic is in Bash, with no external syntax (Python, JS, etc.)
 - **Minimal dependencies**: Only common CLIs (`aws`, `fzf`, `jq`) are depended on—do not add new dependencies without justification.
 - **One-file approach**: Unless explicitly required, do not split code into new files/scripts.
