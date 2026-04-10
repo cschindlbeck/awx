@@ -131,7 +131,8 @@ To develop locally:
 1. Fork & clone.
 2. Install dependencies (see above).
 3. Make changes on a new branch.
-4. Run all tests and hooks as described above before pushing:
+4. Run all tests and hooks as described above before opening a PR:
 ```sh
+bats tests/
 pre-commit run --all-files
 ```
