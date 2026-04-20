@@ -1,11 +1,16 @@
 #!/usr/bin/env bats
 
 setup() {
-  rm -f /tmp/last_aws_call /tmp/test_debug.log
+  rm -f /tmp/last_aws_call
   export DEFAULT_REGION="us-west-2"
   export AWS_PROFILE="test-profile"
-  echo "Setup: DEFAULT_REGION=$DEFAULT_REGION" >> /tmp/test_debug.log
-  echo "Setup: AWS_PROFILE=$AWS_PROFILE" >> /tmp/test_debug.log
+
+  # Mock aws to capture the invocation instead of executing it
+  aws() {
+    echo "aws $*" > /tmp/last_aws_call
+  }
+  export -f aws
+
   source ./awx
 }
 
