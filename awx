@@ -149,10 +149,11 @@ _eks_update_kubeconfig() {
   local profile="$1"
   local cluster="$2"
   local region="${3:-$DEFAULT_REGION}"
-echo "DEBUG: DEFAULT_REGION=$DEFAULT_REGION, region=$region" >> /tmp/test_debug.log
 
   log "Updating kubeconfig for cluster: $cluster"
-  echo "aws --profile $profile eks update-kubeconfig --region $region --name $cluster --alias $profile" > /tmp/last_aws_call
+  AWS_PAGER="" aws --profile "$profile" eks update-kubeconfig \
+    --region "$region" --name "$cluster" --alias "$profile" \
+    || die "Failed to update kubeconfig for cluster: $cluster"
   log "Kubeconfig updated successfully"
 }
 
@@ -217,7 +218,6 @@ awx_eks() {
   update)
     cluster="$(select_cluster_for_profile "$profile")" || die "No EKS cluster selected"
 _eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
-echo "DEBUG: aws_call invoked with --region $region --name $cluster --alias $profile" >> /tmp/test_debug.log
     ;;
   *)
     die "Unknown eks subcommand: ${subcommand:-<empty>} (expected: list|update)"
