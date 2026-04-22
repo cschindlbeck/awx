@@ -85,17 +85,17 @@ source $(pwd)/awx
 
 Tab-completes commands, subcommands, and AWS profile names.
 
+**Plain zsh** (add to `~/.zshrc`):
+```zsh
+fpath=(/path/to/awx/completions $fpath)
+autoload -Uz compinit && compinit
+```
+
 **Oh My Zsh:**
 ```zsh
 mkdir -p ~/.oh-my-zsh/completions
 cp completions/_awx ~/.oh-my-zsh/completions/
 # Restart your shell or run: exec zsh
-```
-
-**Plain zsh** (add to `~/.zshrc`):
-```zsh
-fpath=(/path/to/awx/completions $fpath)
-autoload -Uz compinit && compinit
 ```
 
 ## Testing and Quality
