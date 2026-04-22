@@ -7,7 +7,7 @@ setup() {
 
   # Mock aws to capture the invocation instead of executing it
   aws() {
-    echo "aws $*" > /tmp/last_aws_call
+    echo "aws $*" >/tmp/last_aws_call
   }
   export -f aws
 

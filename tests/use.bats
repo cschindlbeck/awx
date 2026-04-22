@@ -5,7 +5,7 @@
   mkdir -p mock/bin
 
   # Mock fzf to return a desired profile name
-  echo -e "#!/bin/bash\necho mock-profile" > mock/bin/fzf
+  echo -e "#!/bin/bash\necho mock-profile" >mock/bin/fzf
   chmod +x mock/bin/fzf
 
   # Execute the command
