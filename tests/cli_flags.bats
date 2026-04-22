@@ -94,3 +94,15 @@ EOF
   [ "$status" -eq 0 ]
   [[ "${output}" =~ "Using profile: mock-profile" ]]
 }
+
+# ---------------------------------------------------------------------------
+# Test 6: awx --profile X (top-level flag, no 'use' subcommand)
+# Regression test: previously treated --profile as the profile name itself
+# ---------------------------------------------------------------------------
+@test "awx --profile X (top-level flag) sets profile non-interactively" {
+  run ./awx --profile mock-profile
+
+  [ "$status" -eq 0 ]
+  [[ "${output}" =~ "Using profile: mock-profile" ]]
+  ! [[ "${output}" =~ "Using profile: --profile" ]]
+}

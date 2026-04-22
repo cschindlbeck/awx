@@ -288,6 +288,10 @@ awx() {
   help | -h)
     show_help
     ;;
+  --*)
+    # Top-level flags (e.g. awx --profile X) forwarded directly to awx_use.
+    awx_use "$@"
+    ;;
   *)
     # Treat an unrecognised argument as a profile shortcut.
     # e.g. `awx my-profile` is equivalent to `awx use --profile my-profile`
