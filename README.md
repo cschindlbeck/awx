@@ -28,13 +28,22 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 `awx` is a versatile script for managing AWS profiles and EKS kubeconfig contexts. Below are the primary commands and their purposes:
 
 ```sh
-awx             # Select AWS profile using fuzzy finder
-awx use         # Same as awx
-awx whoami      # Show current AWS identity
-awx eks list    # List available EKS clusters for active profile
-awx eks update  # Update kubeconfig for a specific cluster only
-awx help or -h  # Show detailed usage instructions
-awx logout      # Logout of the current AWS SSO session
+# Interactive mode (prompts with fuzzy finder)
+awx                                          # Select AWS profile and cluster
+awx use                                      # Same as awx
+awx profile-name                             # Shortcut: set profile, then select cluster
+
+# Non-interactive mode (for scripts and automation)
+awx use --profile my-profile                 # Set profile without prompts
+awx use --profile my-profile --cluster myc   # Fully non-interactive
+awx --profile my-profile                     # Top-level flag (equivalent to above)
+
+# Other commands
+awx whoami                                   # Show current AWS identity
+awx eks list                                 # List available EKS clusters for active profile
+awx eks update                               # Update kubeconfig for a specific cluster
+awx help or -h                               # Show detailed usage instructions
+awx logout                                   # Logout of the current AWS SSO session
 ```
 
 ### Example Workflow
