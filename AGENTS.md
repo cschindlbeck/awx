@@ -57,18 +57,6 @@ While manual validation is always valuable, the project now incorporates a `bats
 
 This framework ensures reproducible test coverage across edge cases, missing dependencies, and standard command validations.
 
-### Testing (Manual Validation)
-There is no automated test suite. Manual behavior validation is expected:
-- To manually test a feature or change, run the CLI:
-  ```bash
-  ./awx use
-  ./awx whoami
-  ./awx eks list
-  ./awx eks update
-  ```
-- Validate behavior with missing dependencies (e.g., temporarily rename or uninstall `aws`, `fzf`, or `jq`).
-- Validate error messaging by breaking assumptions (e.g., unset `AWS_PROFILE`, choose no profile).
-
 #### Simulating Error Paths
 - Unset environment variables: `unset AWS_PROFILE`
 - Move/remove dependencies: `mv $(which fzf) ~/fzf.tmp`
@@ -112,12 +100,9 @@ There is no automated test suite. Manual behavior validation is expected:
 
 ### README
 
-- The CLI commands implemented are only:
-  - `awx use`
-  - `awx whoami`
-  - `awx eks list`
-  - `awx eks update`
-  - No `awx login`. Do **not** document or add this.
+Update the README after each feature completion.
+Add new features to the section Features.
+Update usage if CLI usage changed or improved.
 
 ---
 

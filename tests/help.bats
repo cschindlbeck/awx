@@ -7,11 +7,11 @@
   # Assert the output contains help message
   [ "$status" -eq 0 ]
   [[ "$output" == *"Usage: awx [command]"* ]]
-  [[ "$output" == *"use           Select AWS profile using fuzzy finder"* ]]
-  [[ "$output" == *"whoami        Display current AWS identity"* ]]
-  [[ "$output" == *"eks list      List EKS clusters for the active profile"* ]]
-  [[ "$output" == *"eks update    Update kubeconfig for a specific EKS cluster"* ]]
-  [[ "$output" == *"help | -h     Show this help message"* ]]
+  [[ "$output" == *"use [--profile P] [--cluster C]"* ]]
+  [[ "$output" == *"whoami"* ]]
+  [[ "$output" == *"eks list"* ]]
+  [[ "$output" == *"eks update"* ]]
+  [[ "$output" == *"help | -h"* ]]
 }
 
 @test "awx -h displays the help message" {
@@ -21,9 +21,9 @@
   # Assert the output contains help message
   [ "$status" -eq 0 ]
   [[ "$output" == *"Usage: awx [command]"* ]]
-  [[ "$output" == *"use           Select AWS profile using fuzzy finder"* ]]
-  [[ "$output" == *"whoami        Display current AWS identity"* ]]
-  [[ "$output" == *"eks list      List EKS clusters for the active profile"* ]]
-  [[ "$output" == *"eks update    Update kubeconfig for a specific EKS cluster"* ]]
-  [[ "$output" == *"help | -h     Show this help message"* ]]
+  [[ "$output" == *"use [--profile P] [--cluster C]"* ]]
+  [[ "$output" == *"whoami"* ]]
+  [[ "$output" == *"eks list"* ]]
+  [[ "$output" == *"eks update"* ]]
+  [[ "$output" == *"help | -h"* ]]
 }
