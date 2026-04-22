@@ -19,6 +19,7 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 - Fuzzy, interactive AWS profile selection via [`fzf`](https://github.com/junegunn/fzf)
 - Non-interactive mode: `awx use --profile X --cluster Y` for scripts and automation
 - Profile shortcut: `awx profile-name` as an alias for `awx use --profile profile-name`
+- Zsh tab completion for commands, subcommands, and AWS profile names
 - SSO login automation; minimal credential hassle
 - Automatically updates current [`kubeconfig`](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
 - Shows your current AWS identity as confirmation
@@ -78,6 +79,23 @@ ln -s $(pwd)/awx ~/.oh-my-zsh/custom/awx.zsh
 # Option 3: Source awx via .zshrc
 # Add the following line to your ~/.zshrc file:
 source $(pwd)/awx
+```
+
+### 3. Shell Completion (Zsh)
+
+Tab-completes commands, subcommands, and AWS profile names.
+
+**Oh My Zsh:**
+```zsh
+mkdir -p ~/.oh-my-zsh/completions
+cp completions/_awx ~/.oh-my-zsh/completions/
+# Restart your shell or run: exec zsh
+```
+
+**Plain zsh** (add to `~/.zshrc`):
+```zsh
+fpath=(/path/to/awx/completions $fpath)
+autoload -Uz compinit && compinit
 ```
 
 ## Testing and Quality

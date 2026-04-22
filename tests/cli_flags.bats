@@ -8,7 +8,7 @@ setup() {
   export PATH="$(pwd)/mock/bin:$PATH"
 
   # Default mock: aws always succeeds (profile selection / STS / kubeconfig)
-  cat > mock/bin/aws << 'EOF'
+  cat >mock/bin/aws <<'EOF'
 #!/usr/bin/env bash
 # Minimal aws mock
 case "$*" in
@@ -23,7 +23,7 @@ EOF
   chmod +x mock/bin/aws
 
   # Default mock: jq passes through
-  cat > mock/bin/jq << 'EOF'
+  cat >mock/bin/jq <<'EOF'
 #!/usr/bin/env bash
 exec /usr/bin/jq "$@"
 EOF
@@ -83,7 +83,7 @@ teardown() {
 # ---------------------------------------------------------------------------
 @test "awx use without flags falls back to interactive fzf" {
   # Mock fzf to return a profile
-  cat > mock/bin/fzf << 'EOF'
+  cat >mock/bin/fzf <<'EOF'
 #!/usr/bin/env bash
 echo "mock-profile"
 EOF
