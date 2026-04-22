@@ -101,6 +101,8 @@ This framework ensures reproducible test coverage across edge cases, missing dep
 ### README
 
 Update the README after each feature completion.
+Add new features to the section Features.
+Update usage if CLI usage changed or improved.
 
 ---
 
