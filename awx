@@ -158,15 +158,26 @@ _eks_update_kubeconfig() {
 }
 
 awx_use() {
-  local profile
-  local cluster
+  local profile=""
+  local cluster=""
+
+  # Parse optional flags; fall back to interactive when absent
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --profile) [[ -n "${2:-}" ]] || die "--profile requires a value"; profile="$2"; shift 2 ;;
+      --cluster) [[ -n "${2:-}" ]] || die "--cluster requires a value"; cluster="$2"; shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
 
   check_deps
 
-  profile="$(select_profile || true)"
   if [[ -z "$profile" ]]; then
-    warn "No profile selected; keeping current AWS_PROFILE: ${AWS_PROFILE:-<unset>}"
-    return 1
+    profile="$(select_profile || true)"
+    if [[ -z "$profile" ]]; then
+      warn "No profile selected; keeping current AWS_PROFILE: ${AWS_PROFILE:-<unset>}"
+      return 1
+    fi
   fi
 
   export AWS_PROFILE="$profile"
@@ -174,8 +185,10 @@ awx_use() {
 
   log "Using profile: $AWS_PROFILE (region: $AWS_REGION)"
 
-  if ! cluster="$(select_cluster_for_profile "$profile")"; then
-    return 0
+  if [[ -z "$cluster" ]]; then
+    if ! cluster="$(select_cluster_for_profile "$profile")"; then
+      return 0
+    fi
   fi
 
   _eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
@@ -245,12 +258,13 @@ awx_logout() {
 show_help() {
   echo "Usage: awx [command]"
   echo "Commands:"
-  echo "  use           Select AWS profile using fuzzy finder"
-  echo "  whoami        Display current AWS identity"
-  echo "  eks list      List EKS clusters for the active profile"
-  echo "  eks update    Update kubeconfig for a specific EKS cluster"
-  echo "  logout        Logout of the current AWS SSO session"
-  echo "  help | -h     Show this help message"
+  echo "  use [--profile P] [--cluster C]  Select AWS profile/cluster (interactive fallback)"
+  echo "  <profile>                         Shortcut: set profile and update kubeconfig"
+  echo "  whoami                            Display current AWS identity"
+  echo "  eks list                          List EKS clusters for the active profile"
+  echo "  eks update                        Update kubeconfig for a specific EKS cluster"
+  echo "  logout                            Logout of the current AWS SSO session"
+  echo "  help | -h                         Show this help message"
 }
 
 awx() {
@@ -258,7 +272,8 @@ awx() {
 
   case "$command" in
   use)
-    awx_use
+    shift || true
+    awx_use "$@"
     ;;
   whoami)
     awx_whoami
@@ -273,8 +288,14 @@ awx() {
   help | -h)
     show_help
     ;;
+  --*)
+    # Top-level flags (e.g. awx --profile X) forwarded directly to awx_use.
+    awx_use "$@"
+    ;;
   *)
-    die "Unknown command: $command (supported: use|whoami|eks|logout|help|-h)"
+    # Treat an unrecognised argument as a profile shortcut.
+    # e.g. `awx my-profile` is equivalent to `awx use --profile my-profile`
+    awx_use --profile "$command"
     ;;
   esac
 }
