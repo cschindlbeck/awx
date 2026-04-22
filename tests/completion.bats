@@ -67,7 +67,7 @@ _awx
   local mock_dir
   mock_dir="$(pwd)/mock/bin"
   mkdir -p "$mock_dir"
-  printf '#!/bin/sh\necho "dev-profile"\necho "prod-profile"\n' > "$mock_dir/aws"
+  printf '#!/bin/sh\necho "dev-profile"\necho "prod-profile"\n' >"$mock_dir/aws"
   chmod +x "$mock_dir/aws"
 
   run zsh -c "
@@ -133,7 +133,7 @@ _awx
   local mock_dir
   mock_dir="$(pwd)/mock/bin"
   mkdir -p "$mock_dir"
-  printf '#!/bin/sh\necho "dev-profile"\necho "prod-profile"\n' > "$mock_dir/aws"
+  printf '#!/bin/sh\necho "dev-profile"\necho "prod-profile"\n' >"$mock_dir/aws"
   chmod +x "$mock_dir/aws"
 
   run zsh -c "
