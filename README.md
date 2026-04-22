@@ -17,6 +17,8 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 ## Features
 
 - Fuzzy, interactive AWS profile selection via [`fzf`](https://github.com/junegunn/fzf)
+- Non-interactive mode: `awx use --profile X --cluster Y` for scripts and automation
+- Profile shortcut: `awx profile-name` as an alias for `awx use --profile profile-name`
 - SSO login automation; minimal credential hassle
 - Automatically updates current [`kubeconfig`](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
 - Shows your current AWS identity as confirmation
