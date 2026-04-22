@@ -97,8 +97,8 @@ EOM
   chmod +x mock/bin/jq
 
   export AWS_PROFILE="valid_profile"
-  export AWX_EKS_RETRIES=1       # Single attempt to keep test fast
-  export AWX_EKS_RETRY_DELAY=0   # No sleep between retries
+  export AWX_EKS_RETRIES=1     # Single attempt to keep test fast
+  export AWX_EKS_RETRY_DELAY=0 # No sleep between retries
 
   run ./awx eks list 2>&1
 

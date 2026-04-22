@@ -43,5 +43,5 @@ repos:
   - repo: https://github.com/scop/pre-commit-shfmt
     rev: v3.13.0-1
     hooks:
-      - id: shfmt # prebuilt upstream executable
-        args: ["-i", "2", "-ci"] # Adjust options as necessary
+      - id: shfmt
+        args: ["-i", "2", "-ci", "-w"]
