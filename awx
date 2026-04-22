@@ -119,7 +119,24 @@ aws_call() {
 }
 
 select_profile() {
-  aws configure list-profiles | fzf --prompt="Select AWS profile: "
+  local profiles
+  profiles="$(aws configure list-profiles)"
+
+  if [[ -z "$profiles" ]]; then
+    die "No AWS profiles configured. Run: aws configure sso"
+    return 1
+  fi
+
+  # No newline in the string means exactly one profile — auto-select it.
+  # Command substitution strips trailing newlines, so a single profile
+  # yields "name" (no newline), while multiple profiles yield "a\nb".
+  if [[ "$profiles" != *$'\n'* ]]; then
+    log "Auto-selecting the only available AWS profile: $profiles" >&2
+    printf "%s\n" "$profiles"
+    return 0
+  fi
+
+  printf "%s\n" "$profiles" | fzf --prompt="Select AWS profile: "
 }
 
 list_clusters() {
@@ -189,10 +206,11 @@ _eks_update_kubeconfig() {
   local region="${3:-$DEFAULT_REGION}"
 
   log "Updating kubeconfig for cluster: $cluster"
-  AWS_PAGER="" aws --profile "$profile" eks update-kubeconfig \
-    --region "$region" --name "$cluster" --alias "$profile" ||
+  if AWS_PAGER="" aws --profile "$profile" eks update-kubeconfig --region "$region" --name "$cluster" --alias "$profile" 2>/tmp/kubeconfig_debug.log; then
+    log "Kubeconfig updated successfully"
+  else
     die "Failed to update kubeconfig for cluster: $cluster"
-  log "Kubeconfig updated successfully"
+  fi
 }
 
 awx_use() {

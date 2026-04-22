@@ -5,13 +5,22 @@ setup() {
   export DEFAULT_REGION="us-west-2"
   export AWS_PROFILE="test-profile"
 
-  # Mock aws to capture the invocation instead of executing it
-  aws() {
-    echo "aws $*" >/tmp/last_aws_call
-  }
-  export -f aws
+  # Provide a mock aws binary that captures the exact invocation so tests can
+  # assert on the arguments passed to `aws eks update-kubeconfig`.
+  mkdir -p mock/bin
+  cat >mock/bin/aws <<'EOM'
+#!/bin/bash
+echo "aws $*" >/tmp/last_aws_call
+exit 0
+EOM
+  chmod +x mock/bin/aws
+  export PATH="$(pwd)/mock/bin:$PATH"
 
   source ./awx
+}
+
+teardown() {
+  rm -rf mock
 }
 
 @test "_eks_update_kubeconfig uses correct parameters" {
