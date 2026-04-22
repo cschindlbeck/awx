@@ -9,7 +9,7 @@ fi
 
 DEFAULT_REGION="${DEFAULT_REGION:-${AWS_REGION:-eu-central-1}}"
 DEBUG="${DEBUG:-false}"                         # Enable debug mode for troubleshooting
-AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"        # Retries for EKS API calls after SSO login
+AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"         # Retries for EKS API calls after SSO login
 AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}" # Seconds between EKS API retries
 AWX_STS_RETRIES="${AWX_STS_RETRIES:-10}"        # Retries waiting for STS after SSO login
 
@@ -96,7 +96,10 @@ list_clusters() {
   # stdout is redirected to stderr so that log messages (e.g. "SSO session
   # expired") are shown to the user but do NOT flow into the stdout of this
   # function, which callers capture via $() to parse cluster names.
-  aws_ensure_session "$profile" >&2 || { die "Session unavailable for profile: $profile"; return 1; }
+  aws_ensure_session "$profile" >&2 || {
+    die "Session unavailable for profile: $profile"
+    return 1
+  }
 
   for ((i = 1; i <= AWX_EKS_RETRIES; i++)); do
     if out="$(AWS_PAGER="" aws --profile "$profile" eks list-clusters \
@@ -152,8 +155,8 @@ _eks_update_kubeconfig() {
 
   log "Updating kubeconfig for cluster: $cluster"
   AWS_PAGER="" aws --profile "$profile" eks update-kubeconfig \
-    --region "$region" --name "$cluster" --alias "$profile" \
-    || die "Failed to update kubeconfig for cluster: $cluster"
+    --region "$region" --name "$cluster" --alias "$profile" ||
+    die "Failed to update kubeconfig for cluster: $cluster"
   log "Kubeconfig updated successfully"
 }
 
@@ -164,8 +167,16 @@ awx_use() {
   # Parse optional flags; fall back to interactive when absent
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --profile) [[ -n "${2:-}" ]] || die "--profile requires a value"; profile="$2"; shift 2 ;;
-      --cluster) [[ -n "${2:-}" ]] || die "--cluster requires a value"; cluster="$2"; shift 2 ;;
+      --profile)
+        [[ -n "${2:-}" ]] || die "--profile requires a value"
+        profile="$2"
+        shift 2
+        ;;
+      --cluster)
+        [[ -n "${2:-}" ]] || die "--cluster requires a value"
+        cluster="$2"
+        shift 2
+        ;;
       *) die "Unknown flag: $1" ;;
     esac
   done
@@ -225,16 +236,16 @@ awx_eks() {
   fi
 
   case "$subcommand" in
-  list)
-    list_clusters "$profile"
-    ;;
-  update)
-    cluster="$(select_cluster_for_profile "$profile")" || die "No EKS cluster selected"
-_eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
-    ;;
-  *)
-    die "Unknown eks subcommand: ${subcommand:-<empty>} (expected: list|update)"
-    ;;
+    list)
+      list_clusters "$profile"
+      ;;
+    update)
+      cluster="$(select_cluster_for_profile "$profile")" || die "No EKS cluster selected"
+      _eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
+      ;;
+    *)
+      die "Unknown eks subcommand: ${subcommand:-<empty>} (expected: list|update)"
+      ;;
   esac
 }
 
@@ -271,32 +282,32 @@ awx() {
   local command="${1:-use}"
 
   case "$command" in
-  use)
-    [[ $# -gt 0 ]] && shift || true
-    awx_use "$@"
-    ;;
-  whoami)
-    awx_whoami
-    ;;
-  eks)
-    [[ $# -gt 0 ]] && shift || true
-    awx_eks "$@"
-    ;;
-  logout)
-    awx_logout
-    ;;
-  help | -h)
-    show_help
-    ;;
-  --*)
-    # Top-level flags (e.g. awx --profile X) forwarded directly to awx_use.
-    awx_use "$@"
-    ;;
-  *)
-    # Treat an unrecognised argument as a profile shortcut.
-    # e.g. `awx my-profile` is equivalent to `awx use --profile my-profile`
-    awx_use --profile "$command"
-    ;;
+    use)
+      [[ $# -gt 0 ]] && shift || true
+      awx_use "$@"
+      ;;
+    whoami)
+      awx_whoami
+      ;;
+    eks)
+      [[ $# -gt 0 ]] && shift || true
+      awx_eks "$@"
+      ;;
+    logout)
+      awx_logout
+      ;;
+    help | -h)
+      show_help
+      ;;
+    --*)
+      # Top-level flags (e.g. awx --profile X) forwarded directly to awx_use.
+      awx_use "$@"
+      ;;
+    *)
+      # Treat an unrecognised argument as a profile shortcut.
+      # e.g. `awx my-profile` is equivalent to `awx use --profile my-profile`
+      awx_use --profile "$command"
+      ;;
   esac
 }
 
