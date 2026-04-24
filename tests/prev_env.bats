@@ -103,6 +103,8 @@ EOM
   [ "$status" -eq 0 ]
 
   grep -q "prod-profile" <(head -1 "$AWX_STATE_FILE")
+  [[ "$(head -1 "$AWX_STATE_FILE")" == "prod-profile,prod-cluster" ]]
+  [[ "$(sed -n '2p' "$AWX_STATE_FILE")" == "dev-profile,dev-cluster" ]]
 }
 
 @test "awx - with no state file exits non-zero with message" {

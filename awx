@@ -316,6 +316,10 @@ awx_prev() {
     die "No previous environment recorded. Run 'awx use' at least twice to enable toggling."
   fi
 
+  if [[ "$prev_line" != *,* ]]; then
+    die "Malformed state entry: '$prev_line'. Expected 'profile,cluster' format. Delete ${AWX_STATE_FILE} to reset."
+  fi
+
   local prev_profile prev_cluster
   prev_profile="${prev_line%%,*}"
   prev_cluster="${prev_line#*,}"
@@ -326,6 +330,9 @@ awx_prev() {
     current_line="$(head -1 "$AWX_STATE_FILE")"
   fi
   _awx_state_ensure_dir
+  # NOTE: state is swapped before kubeconfig update. If kubeconfig fails,
+  # the state file reflects the new environment even though kubeconfig was
+  # not updated. Run 'awx -' again to recover or manually run 'awx use'.
   printf "%s\n%s\n" "$prev_line" "$current_line" >"$AWX_STATE_FILE"
 
   export AWS_PROFILE="$prev_profile"
