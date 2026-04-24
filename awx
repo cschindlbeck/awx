@@ -39,7 +39,8 @@ _awx_state_write() {
   printf "%s\n%s\n" "${profile},${cluster}" "${prev_current}" >"$AWX_STATE_FILE"
 }
 
-# Read the previous environment line. Prints "profile,cluster" or empty string.
+# Read the previous environment line. Prints "profile,cluster", empty string, or blank line.
+# Callers must guard against empty/blank results.
 _awx_state_read_previous() {
   if [[ ! -f "$AWX_STATE_FILE" ]]; then
     return 0

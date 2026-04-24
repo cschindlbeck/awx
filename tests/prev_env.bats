@@ -4,7 +4,6 @@ setup() {
   export AWX_STATE_FILE="$(mktemp)"
   rm -f "$AWX_STATE_FILE"  # start empty
   mkdir -p "$(dirname "$AWX_STATE_FILE")"
-  export AWX_TEST_STATE_FILE="$AWX_STATE_FILE"
 }
 
 teardown() {
