@@ -233,11 +233,13 @@ awx_use() {
 
   if [[ -z "$cluster" ]]; then
     if ! cluster="$(select_cluster_for_profile "$profile")"; then
+      _awx_state_write "$profile" ""
       return 0
     fi
   fi
 
   _eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
+  _awx_state_write "$profile" "$cluster"
 }
 
 awx_whoami() {
@@ -277,6 +279,7 @@ awx_eks() {
     update)
       cluster="$(select_cluster_for_profile "$profile")" || die "No EKS cluster selected"
       _eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
+      _awx_state_write "$profile" "$cluster"
       ;;
     *)
       die "Unknown eks subcommand: ${subcommand:-<empty>} (expected: list|update)"
