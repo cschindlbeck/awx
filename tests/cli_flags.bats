@@ -28,10 +28,15 @@ EOF
 exec /usr/bin/jq "$@"
 EOF
   chmod +x mock/bin/jq
+
+  export AWX_STATE_FILE
+  AWX_STATE_FILE="$(mktemp)"
+  rm -f "$AWX_STATE_FILE"
 }
 
 teardown() {
   rm -rf mock
+  rm -f "${AWX_STATE_FILE:-}"
 }
 
 # ---------------------------------------------------------------------------
@@ -40,7 +45,7 @@ teardown() {
 @test "awx use --profile X sets profile non-interactively" {
   # fzf is NOT mocked — if it were called it would fail (not in PATH)
   # The test succeeds only if fzf is never invoked for profile selection.
-  run ./awx use --profile mock-profile
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx use --profile mock-profile
 
   [ "$status" -eq 0 ]
   [[ "${output}" =~ "Using profile: mock-profile" ]]
@@ -51,7 +56,7 @@ teardown() {
 # ---------------------------------------------------------------------------
 @test "awx use --profile X --cluster Y is fully non-interactive" {
   # fzf is NOT mocked — test passes only if fzf is never called.
-  run ./awx use --profile mock-profile --cluster mock-cluster
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx use --profile mock-profile --cluster mock-cluster
 
   [ "$status" -eq 0 ]
   [[ "${output}" =~ "Using profile: mock-profile" ]]
@@ -62,7 +67,7 @@ teardown() {
 # Test 3: awx <profile> shortcut behaves like awx use --profile <profile>
 # ---------------------------------------------------------------------------
 @test "awx <profile> shortcut sets profile non-interactively" {
-  run ./awx mock-profile
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx mock-profile
 
   [ "$status" -eq 0 ]
   [[ "${output}" =~ "Using profile: mock-profile" ]]
@@ -72,7 +77,7 @@ teardown() {
 # Test 4: Unknown flag exits with an error
 # ---------------------------------------------------------------------------
 @test "awx use --invalid-flag exits non-zero with error" {
-  run ./awx use --invalid-flag
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx use --invalid-flag
 
   [ "$status" -ne 0 ]
   [[ "${output}" =~ "Unknown flag" ]] || [[ "${output}" =~ "ERROR" ]]
@@ -89,7 +94,7 @@ echo "mock-profile"
 EOF
   chmod +x mock/bin/fzf
 
-  run ./awx use
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx use
 
   [ "$status" -eq 0 ]
   [[ "${output}" =~ "Using profile: mock-profile" ]]
@@ -100,7 +105,7 @@ EOF
 # Regression test: previously treated --profile as the profile name itself
 # ---------------------------------------------------------------------------
 @test "awx --profile X (top-level flag) sets profile non-interactively" {
-  run ./awx --profile mock-profile
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx --profile mock-profile
 
   [ "$status" -eq 0 ]
   [[ "${output}" =~ "Using profile: mock-profile" ]]

@@ -313,7 +313,8 @@ awx_prev() {
   prev_line="${prev_line%"${prev_line##*[![:space:]]}"}"
 
   if [[ -z "$prev_line" ]]; then
-    die "No previous environment recorded. Run 'awx use' at least twice to enable toggling."
+    warn "No previous environment recorded; staying on current profile: ${AWS_PROFILE:-<unset>}"
+    return 0
   fi
 
   if [[ "$prev_line" != *,* ]]; then

@@ -107,23 +107,26 @@ EOM
   [[ "$(sed -n '2p' "$AWX_STATE_FILE")" == "dev-profile,dev-cluster" ]]
 }
 
-@test "awx - with no state file exits non-zero with message" {
+@test "awx - with no state file stays on current profile with warning" {
   rm -f "$AWX_STATE_FILE"
+  export AWS_PROFILE="current-profile"
 
   AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx - 2>&1
 
-  [ "$status" -ne 0 ]
+  [ "$status" -eq 0 ]
   [[ "${output}" =~ "No previous environment recorded" ]]
+  [[ "${output}" =~ "current-profile" ]]
 }
 
-@test "awx - with empty previous env exits non-zero with message" {
+@test "awx - with empty previous env stays on current profile with warning" {
   printf "prod-profile,prod-cluster\n\n" >"$AWX_STATE_FILE"
   export AWS_PROFILE="prod-profile"
 
   AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx - 2>&1
 
-  [ "$status" -ne 0 ]
+  [ "$status" -eq 0 ]
   [[ "${output}" =~ "No previous environment recorded" ]]
+  [[ "${output}" =~ "prod-profile" ]]
 }
 
 @test "awx - with profile-only previous env switches profile and warns" {
