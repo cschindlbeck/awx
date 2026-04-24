@@ -304,6 +304,41 @@ awx_logout() {
   fi
 }
 
+awx_prev() {
+  local prev_line
+  prev_line="$(_awx_state_read_previous)"
+
+  # Strip whitespace/blank lines
+  prev_line="${prev_line#"${prev_line%%[![:space:]]*}"}"
+  prev_line="${prev_line%"${prev_line##*[![:space:]]}"}"
+
+  if [[ -z "$prev_line" ]]; then
+    die "No previous environment recorded. Run 'awx use' at least twice to enable toggling."
+  fi
+
+  local prev_profile prev_cluster
+  prev_profile="${prev_line%%,*}"
+  prev_cluster="${prev_line#*,}"
+
+  # Swap state lines: previous becomes current, current becomes previous
+  local current_line=""
+  if [[ -f "$AWX_STATE_FILE" ]]; then
+    current_line="$(head -1 "$AWX_STATE_FILE")"
+  fi
+  _awx_state_ensure_dir
+  printf "%s\n%s\n" "$prev_line" "$current_line" >"$AWX_STATE_FILE"
+
+  export AWS_PROFILE="$prev_profile"
+  export AWS_REGION="$DEFAULT_REGION"
+  log "Switched to profile: $AWS_PROFILE (region: $AWS_REGION)"
+
+  if [[ -n "$prev_cluster" ]]; then
+    _eks_update_kubeconfig "$prev_profile" "$prev_cluster" "$DEFAULT_REGION"
+  else
+    warn "No cluster stored for previous environment; kubeconfig not updated"
+  fi
+}
+
 show_help() {
   echo "Usage: awx [command]"
   echo "Commands:"
@@ -336,6 +371,9 @@ awx() {
       ;;
     help | -h)
       show_help
+      ;;
+    -)
+      awx_prev
       ;;
     --*)
       # Top-level flags (e.g. awx --profile X) forwarded directly to awx_use.
