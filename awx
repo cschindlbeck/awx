@@ -13,6 +13,40 @@ AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"         # Retries for EKS API calls afte
 AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}" # Seconds between EKS API retries
 AWX_STS_RETRIES="${AWX_STS_RETRIES:-10}"        # Retries waiting for STS after SSO login
 
+# ---------------------------------------------------------------------------
+# State management — persists current/previous environment for `awx -`
+# ---------------------------------------------------------------------------
+AWX_STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/awx"
+AWX_STATE_FILE="${AWX_STATE_FILE:-$AWX_STATE_DIR/env}"
+
+_awx_state_ensure_dir() {
+  mkdir -p "$(dirname "$AWX_STATE_FILE")"
+}
+
+# Write a new current env, rotating previous.
+# Usage: _awx_state_write <profile> <cluster>
+_awx_state_write() {
+  local profile="$1"
+  local cluster="${2:-}"
+  local prev_current=""
+
+  _awx_state_ensure_dir
+
+  if [[ -f "$AWX_STATE_FILE" ]]; then
+    prev_current="$(head -1 "$AWX_STATE_FILE")"
+  fi
+
+  printf "%s\n%s\n" "${profile},${cluster}" "${prev_current}" >"$AWX_STATE_FILE"
+}
+
+# Read the previous environment line. Prints "profile,cluster" or empty string.
+_awx_state_read_previous() {
+  if [[ ! -f "$AWX_STATE_FILE" ]]; then
+    return 0
+  fi
+  sed -n '2p' "$AWX_STATE_FILE"
+}
+
 log() {
   printf "[INFO] %s\n" "$*"
 }
