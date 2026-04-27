@@ -381,7 +381,7 @@ awx_prev() {
   log "Switched to profile: $AWS_PROFILE (region: $AWS_REGION)"
 
   if [[ -n "$prev_cluster" ]]; then
-    _eks_update_kubeconfig "$prev_profile" "$prev_cluster" "$DEFAULT_REGION"
+    _eks_ensure_kubeconfig "$prev_profile" "$prev_cluster" "$DEFAULT_REGION"
   else
     warn "No cluster stored for previous environment; kubeconfig not updated"
   fi
