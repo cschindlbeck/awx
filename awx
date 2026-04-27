@@ -73,6 +73,7 @@ check_deps() {
   require_cmd aws
   require_cmd fzf
   require_cmd jq
+  require_cmd kubectl
 }
 
 aws_ensure_session() {
