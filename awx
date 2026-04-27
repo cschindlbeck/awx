@@ -392,14 +392,17 @@ awx_prev() {
 show_help() {
   echo "Usage: awx [command]"
   echo "Commands:"
-  echo "  use [--profile P] [--cluster C]  Select AWS profile/cluster (interactive fallback)"
-  echo "  <profile>                         Shortcut: set profile and update kubeconfig"
-  echo "  whoami                            Display current AWS identity"
-  echo "  eks list                          List EKS clusters for the active profile"
-  echo "  eks update                        Update kubeconfig for a specific EKS cluster"
-  echo "  logout                            Logout of the current AWS SSO session"
-  echo "  -                                 Toggle back to previous AWS profile/cluster (like cd -)"
-  echo "  help | -h                         Show this help message"
+  echo "  use [--profile P] [--cluster C] [--force]  Select AWS profile/cluster (interactive fallback)"
+  echo "  <profile>                                   Shortcut: set profile and update kubeconfig"
+  echo "  whoami                                      Display current AWS identity"
+  echo "  eks list                                    List EKS clusters for the active profile"
+  echo "  eks update [--force]                        Update kubeconfig for a specific EKS cluster"
+  echo "  logout                                      Logout of the current AWS SSO session"
+  echo "  -                                           Toggle back to previous AWS profile/cluster (like cd -)"
+  echo "  help | -h                                   Show this help message"
+  echo ""
+  echo "Flags:"
+  echo "  --force  Skip kubeconfig-up-to-date check and always run update-kubeconfig"
 }
 
 awx() {
