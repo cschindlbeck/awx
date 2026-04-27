@@ -317,8 +317,10 @@ awx_eks() {
       list_clusters "$profile"
       ;;
     update)
+      local force="false"
+      [[ "${2:-}" == "--force" ]] && force="true"
       cluster="$(select_cluster_for_profile "$profile")" || die "No EKS cluster selected"
-      _eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
+      _eks_ensure_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION" "${force:+--force}"
       _awx_state_write "$profile" "$cluster"
       ;;
     *)
