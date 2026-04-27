@@ -19,6 +19,7 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 - Fuzzy, interactive AWS profile selection via [`fzf`](https://github.com/junegunn/fzf)
 - Non-interactive mode: `awx use --profile X --cluster Y` for scripts and automation
 - Profile shortcut: `awx profile-name` as an alias for `awx use --profile profile-name`
+- **`awx -`** — Toggle back to the previous AWS profile and EKS cluster (like `cd -` / `git checkout -`)
 - Zsh tab completion for commands, subcommands, and AWS profile names
 - SSO login automation; minimal credential hassle
 - Automatically updates current [`kubeconfig`](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
@@ -46,6 +47,16 @@ awx eks update                               # Update kubeconfig for a specific 
 awx help or -h                               # Show detailed usage instructions
 awx logout                                   # Logout of the current AWS SSO session
 ```
+
+### Toggle to previous environment
+
+Switch back to the last used profile/cluster:
+
+```bash
+awx -
+```
+
+Running `awx -` again toggles back to the original environment. State is persisted across shell sessions in `~/.local/state/awx/env`.
 
 ### Example Workflow
 ```sh
