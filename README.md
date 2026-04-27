@@ -22,7 +22,7 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 - **`awx -`** — Toggle back to the previous AWS profile and EKS cluster (like `cd -` / `git checkout -`)
 - Zsh tab completion for commands, subcommands, and AWS profile names
 - SSO login automation; minimal credential hassle
-- Automatically updates current [`kubeconfig`](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+- Automatically updates current [`kubeconfig`](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) — skips the update when the context already points to the correct cluster, avoiding redundant AWS API calls
 - Shows your current AWS identity as confirmation
 - Friendly and clear error output with robust logging
 
@@ -39,11 +39,13 @@ awx profile-name                             # Shortcut: set profile, then selec
 awx use --profile my-profile                 # Set profile without prompts
 awx use --profile my-profile --cluster myc   # Fully non-interactive
 awx --profile my-profile                     # Top-level flag (equivalent to above)
+awx use --profile my-profile --force         # Force kubeconfig update even if already current
 
 # Other commands
 awx whoami                                   # Show current AWS identity
 awx eks list                                 # List available EKS clusters for active profile
-awx eks update                               # Update kubeconfig for a specific cluster
+awx eks update                               # Update kubeconfig for a specific cluster (skips if current)
+awx eks update --force                       # Force kubeconfig update regardless of current state
 awx help or -h                               # Show detailed usage instructions
 awx logout                                   # Logout of the current AWS SSO session
 ```
@@ -72,6 +74,7 @@ $ awx
 - [AWS CLI](https://aws.amazon.com/cli/)
 - [fzf](https://github.com/junegunn/fzf)
 - [jq](https://jqlang.org/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) (required for kubeconfig context inspection)
 
 ### 2. Clone and Set Up
 ```sh
@@ -159,7 +162,8 @@ Automated quality checks, formatting, and linting are enforced by [pre-commit](h
 **Best practice: Always run both the test suite and pre-commit before committing or opening a PR.**
 
 ## Tips & Behavior
-- If required tools (`aws`, `fzf`, or `jq`) are missing, `awx` will tell you exactly what to install.
+- If required tools (`aws`, `fzf`, `jq`, or `kubectl`) are missing, `awx` will tell you exactly what to install.
+- `awx use` and `awx eks update` skip `update-kubeconfig` when the kubeconfig context already points to the correct cluster. Use `--force` to override this and force a full update.
 - `kubeconfig` is updated *per profile*; back up your old file if you need persistent custom setups.
 - Make sure your AWS SSO setup is complete before using `awx use` for the first time.
 - Defaults to region from `AWS_REGION`, falling back to `eu-central-1` if unset.
