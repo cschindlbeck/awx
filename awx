@@ -233,6 +233,7 @@ _eks_ensure_kubeconfig() {
 awx_use() {
   local profile=""
   local cluster=""
+  local force="false"
 
   # Parse optional flags; fall back to interactive when absent
   while [[ $# -gt 0 ]]; do
@@ -246,6 +247,10 @@ awx_use() {
         [[ -n "${2:-}" ]] || die "--cluster requires a value"
         cluster="$2"
         shift 2
+        ;;
+      --force)
+        force="true"
+        shift
         ;;
       *) die "Unknown flag: $1" ;;
     esac
@@ -273,7 +278,7 @@ awx_use() {
     fi
   fi
 
-  _eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
+  _eks_ensure_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION" "${force:+--force}"
   _awx_state_write "$profile" "$cluster"
 }
 
