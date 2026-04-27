@@ -98,8 +98,9 @@ EOF
 }
 
 @test "_eks_ensure_kubeconfig warns and runs update when kubectl is not available" {
-  # No kubectl in mock/bin — ensure it is absent from PATH mock
-  # (mock/bin/kubectl deliberately not created)
+  # Restrict PATH to mock/bin + core system dirs; kubectl lives in /usr/local/bin
+  # and /opt/homebrew/bin which are excluded here, simulating it being absent.
+  export PATH="$(pwd)/mock/bin:/bin:/usr/bin:/usr/sbin"
 
   source ./awx
 

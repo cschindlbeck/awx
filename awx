@@ -195,6 +195,40 @@ _eks_update_kubeconfig() {
   log "Kubeconfig updated successfully"
 }
 
+# Returns 0 if the kubeconfig context <profile> already points to <cluster>.
+# Handles both plain cluster names and ARN format
+# (arn:aws:eks:<region>:<account>:cluster/<name>).
+_kubeconfig_context_matches() {
+  local profile="$1"
+  local cluster="$2"
+  local ctx_cluster
+  ctx_cluster="$(kubectl config view \
+    -o jsonpath="{.contexts[?(@.name==\"${profile}\")].context.cluster}" \
+    2>/dev/null || true)"
+  [[ "$ctx_cluster" == *"/${cluster}" || "$ctx_cluster" == "${cluster}" ]]
+}
+
+# Skip update-kubeconfig when the context is already correct.
+# Usage: _eks_ensure_kubeconfig <profile> <cluster> [region] [--force]
+_eks_ensure_kubeconfig() {
+  local profile="$1"
+  local cluster="$2"
+  local region="${3:-$DEFAULT_REGION}"
+  local force="false"
+  [[ "${4:-}" == "--force" ]] && force="true"
+
+  if [[ "$force" != "true" ]]; then
+    if ! command -v kubectl >/dev/null 2>&1; then
+      warn "kubectl not found; skipping kubeconfig check, running update"
+    elif _kubeconfig_context_matches "$profile" "$cluster"; then
+      log "Kubeconfig already up-to-date for cluster: $cluster (skipping update)"
+      return 0
+    fi
+  fi
+
+  _eks_update_kubeconfig "$profile" "$cluster" "$region"
+}
+
 awx_use() {
   local profile=""
   local cluster=""
