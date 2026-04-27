@@ -106,6 +106,48 @@ Update usage if CLI usage changed or improved.
 
 ---
 
+## 📝 Git Workflow
+
+### Branch Naming Convention
+- **Feature branches**: `feat-<featureName>` (e.g., `feat-add-eks-support`)
+- **Bug fix branches**: `fix-<bugName>` (e.g., `fix-profile-loading`)
+- **Never commit directly to `main` or `dev`** branches
+
+### Commit Message Format
+All commits must follow [Conventional Commits](https://www.conventionalcommits.org/) specification:
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+**Types:**
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation only changes
+- `style`: Changes that don't affect code meaning (whitespace, formatting, missing semicolons, etc.)
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `perf`: Code change that improves performance
+- `test`: Adding or updating tests
+
+**Examples:**
+- `feat(eks): add cluster update command`
+- `fix(profile): resolve AWS_PROFILE not persisting`
+- `docs: update installation instructions`
+- `refactor: consolidate profile selection logic`
+
+### Workflow Steps
+1. Create a new branch from `main` or `dev` (depending on the common last root) using the naming convention above
+2. Implement your changes
+3. Ensure all pre-commit checks pass: `pre-commit run --all-files`
+4. Commit with a descriptive message following Conventional Commits
+5. Push your branch and create a pull request
+6. Do not merge without approval from maintainers
+
+---
+
 ## 🏷️ Naming Conventions
 - **Functions**: all lower_snake_case (e.g. `list_clusters`, `select_profile`).
 - **Variables**: lower_snake_case for locals, UPPER_SNAKE_CASE for env or exported values.
