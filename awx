@@ -218,17 +218,17 @@ awx_use() {
   # Parse optional flags; fall back to interactive when absent
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --profile)
-        [[ -n "${2:-}" ]] || die "--profile requires a value"
-        profile="$2"
-        shift 2
-        ;;
-      --cluster)
-        [[ -n "${2:-}" ]] || die "--cluster requires a value"
-        cluster="$2"
-        shift 2
-        ;;
-      *) die "Unknown flag: $1" ;;
+    --profile)
+      [[ -n "${2:-}" ]] || die "--profile requires a value"
+      profile="$2"
+      shift 2
+      ;;
+    --cluster)
+      [[ -n "${2:-}" ]] || die "--cluster requires a value"
+      cluster="$2"
+      shift 2
+      ;;
+    *) die "Unknown flag: $1" ;;
     esac
   done
 
@@ -271,6 +271,46 @@ awx_whoami() {
   aws_call "$profile" sts get-caller-identity
 }
 
+awx_profiles() {
+  # Only aws is needed here (no fzf/jq), so require_cmd aws is used directly
+  require_cmd aws
+  local filter_profile="${1:-}"
+  local profiles_out _awx_interrupted=0 _prev_int_trap
+
+  if [[ -n "$filter_profile" ]]; then
+    profiles_out="$filter_profile"
+  else
+    profiles_out="$(aws configure list-profiles)" || die "Failed to list AWS profiles"
+  fi
+
+  # Save existing INT trap and set our own so Ctrl+C breaks the loop cleanly.
+  # This is necessary when awx is sourced: the interactive shell's SIGINT only
+  # kills the foreground subprocess (aws sts), not the while loop itself.
+  _prev_int_trap="$(trap -p INT)"
+  trap '_awx_interrupted=1' INT
+
+  while IFS= read -r profile; do
+    if [[ "$_awx_interrupted" -eq 1 ]]; then break; fi
+    if AWS_PAGER="" aws sts get-caller-identity \
+      --profile "$profile" >/dev/null 2>&1; then
+      printf "%-40s ACTIVE\n" "$profile"
+    else
+      printf "%-40s EXPIRED\n" "$profile"
+    fi
+  done <<<"$profiles_out"
+
+  # Restore the previous INT trap to leave the shell in a clean state
+  if [[ -n "$_prev_int_trap" ]]; then
+    eval "$_prev_int_trap"
+  else
+    trap - INT
+  fi
+
+  if [[ "$_awx_interrupted" -eq 1 ]]; then
+    return 130
+  fi
+}
+
 awx_eks() {
   local subcommand="${1:-}"
   local profile="${AWS_PROFILE:-}"
@@ -289,17 +329,17 @@ awx_eks() {
   fi
 
   case "$subcommand" in
-    list)
-      list_clusters "$profile"
-      ;;
-    update)
-      cluster="$(select_cluster_for_profile "$profile")" || die "No EKS cluster selected"
-      _eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
-      _awx_state_write "$profile" "$cluster"
-      ;;
-    *)
-      die "Unknown eks subcommand: ${subcommand:-<empty>} (expected: list|update)"
-      ;;
+  list)
+    list_clusters "$profile"
+    ;;
+  update)
+    cluster="$(select_cluster_for_profile "$profile")" || die "No EKS cluster selected"
+    _eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
+    _awx_state_write "$profile" "$cluster"
+    ;;
+  *)
+    die "Unknown eks subcommand: ${subcommand:-<empty>} (expected: list|update)"
+    ;;
   esac
 }
 
@@ -341,6 +381,15 @@ awx_prev() {
   prev_profile="${prev_line%%,*}"
   prev_cluster="${prev_line#*,}"
 
+  # Guard against state file corruption where a command name was written as a
+  # profile (e.g. 'awx profiles' treated as a profile shortcut before the
+  # command was registered in the dispatcher).
+  case "$prev_profile" in
+  use | whoami | profiles | eks | logout | help | -)
+    die "State file contains reserved name '$prev_profile' as a profile — likely caused by sourcing an old version of awx. Delete $AWX_STATE_FILE to reset."
+    ;;
+  esac
+
   # Swap state lines: previous becomes current, current becomes previous
   local current_line=""
   if [[ -f "$AWX_STATE_FILE" ]]; then
@@ -369,6 +418,7 @@ show_help() {
   echo "  use [--profile P] [--cluster C]  Select AWS profile/cluster (interactive fallback)"
   echo "  <profile>                         Shortcut: set profile and update kubeconfig"
   echo "  whoami                            Display current AWS identity"
+  echo "  profiles                          List all profiles with session status (ACTIVE/EXPIRED)"
   echo "  eks list                          List EKS clusters for the active profile"
   echo "  eks update                        Update kubeconfig for a specific EKS cluster"
   echo "  logout                            Logout of the current AWS SSO session"
@@ -380,35 +430,39 @@ awx() {
   local command="${1:-use}"
 
   case "$command" in
-    use)
-      [[ $# -gt 0 ]] && shift || true
-      awx_use "$@"
-      ;;
-    whoami)
-      awx_whoami
-      ;;
-    eks)
-      [[ $# -gt 0 ]] && shift || true
-      awx_eks "$@"
-      ;;
-    logout)
-      awx_logout
-      ;;
-    help | -h)
-      show_help
-      ;;
-    -)
-      awx_prev
-      ;;
-    --*)
-      # Top-level flags (e.g. awx --profile X) forwarded directly to awx_use.
-      awx_use "$@"
-      ;;
-    *)
-      # Treat an unrecognised argument as a profile shortcut.
-      # e.g. `awx my-profile` is equivalent to `awx use --profile my-profile`
-      awx_use --profile "$command"
-      ;;
+  use)
+    [[ $# -gt 0 ]] && shift || true
+    awx_use "$@"
+    ;;
+  whoami)
+    awx_whoami
+    ;;
+  profiles)
+    [[ $# -gt 0 ]] && shift || true
+    awx_profiles "$@"
+    ;;
+  eks)
+    [[ $# -gt 0 ]] && shift || true
+    awx_eks "$@"
+    ;;
+  logout)
+    awx_logout
+    ;;
+  help | -h)
+    show_help
+    ;;
+  -)
+    awx_prev
+    ;;
+  --*)
+    # Top-level flags (e.g. awx --profile X) forwarded directly to awx_use.
+    awx_use "$@"
+    ;;
+  *)
+    # Treat an unrecognised argument as a profile shortcut.
+    # e.g. `awx my-profile` is equivalent to `awx use --profile my-profile`
+    awx_use --profile "$command"
+    ;;
   esac
 }
 
