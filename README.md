@@ -25,6 +25,7 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 - Automatically updates current [`kubeconfig`](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
 - Shows your current AWS identity as confirmation
 - Friendly and clear error output with robust logging
+- **`awx profiles`** — Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status, without triggering SSO login
 
 ## Usage
 `awx` is a versatile script for managing AWS profiles and EKS kubeconfig contexts. Below are the primary commands and their purposes:
@@ -46,6 +47,7 @@ awx eks list                                 # List available EKS clusters for a
 awx eks update                               # Update kubeconfig for a specific cluster
 awx help or -h                               # Show detailed usage instructions
 awx logout                                   # Logout of the current AWS SSO session
+awx profiles                                 # List all configured AWS profiles with ACTIVE/EXPIRED session status
 ```
 
 ### Toggle to previous environment

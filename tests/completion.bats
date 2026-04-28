@@ -151,3 +151,29 @@ _awx
   [[ "${output}" =~ "dev-profile" ]]
   [[ "${output}" =~ "prod-profile" ]]
 }
+
+# ---------------------------------------------------------------------------
+# Test 7: awx profiles suggests profile names at position 3
+# ---------------------------------------------------------------------------
+@test "completion suggests profile names after awx profiles" {
+  local mock_dir
+  mock_dir="$(pwd)/mock/bin"
+  mkdir -p "$mock_dir"
+  printf '#!/bin/sh\necho "dev-profile"\necho "prod-profile"\n' >"$mock_dir/aws"
+  chmod +x "$mock_dir/aws"
+
+  run zsh -c "
+export PATH='${mock_dir}:\$PATH'
+$ZSH_HELPER
+source '$COMPLETION_FILE'
+words=(awx profiles '')
+CURRENT=3
+state=args
+_awx
+"
+  rm -rf mock
+
+  [ "$status" -eq 0 ]
+  [[ "${output}" =~ "dev-profile" ]]
+  [[ "${output}" =~ "prod-profile" ]]
+}
