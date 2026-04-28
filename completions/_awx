@@ -15,6 +15,7 @@ _awx() {
   commands=(
     'use:Select AWS profile and update kubeconfig'
     'whoami:Display current AWS identity'
+    'profiles:List all configured profiles with session status'
     'eks:Manage EKS clusters'
     'logout:Logout of current AWS SSO session'
     'help:Show help message'
