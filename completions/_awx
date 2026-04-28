@@ -11,7 +11,6 @@
 
 _awx() {
   local -a commands profiles
-  local line
   typeset -A opt_args
 
   commands=(
@@ -23,40 +22,30 @@ _awx() {
     'help:Show help message'
   )
 
-  _arguments -C \
-    '1: :->command' \
-    '*: :->args'
+  if (( CURRENT == 2 )); then
+    profiles=(${(f)"$(aws configure list-profiles 2>/dev/null)"})
+    _describe 'command' commands
+    _describe 'profile shortcut' profiles
+    return
+  fi
 
-  case $state in
-    command)
-      profiles=(${(f)"$(aws configure list-profiles 2>/dev/null)"})
-      _describe 'command' commands
-      _describe 'profile shortcut' profiles
+  case $words[2] in
+    use)
+      _arguments \
+        '--profile[AWS profile name]:profile:(${(f)"$(aws configure list-profiles 2>/dev/null)"})' \
+        '--cluster[EKS cluster name]:cluster:'
       ;;
-    args)
-      case $words[2] in
-        use)
-          _arguments \
-            '--profile[AWS profile name]:profile:(${(f)"$(aws configure list-profiles 2>/dev/null)"})' \
-            '--cluster[EKS cluster name]:cluster:'
-          ;;
-        --profile)
-          profiles=(${(f)"$(aws configure list-profiles 2>/dev/null)"})
-          _describe 'profile' profiles
-          ;;
-        profiles)
-          profiles=(${(f)"$(aws configure list-profiles 2>/dev/null)"})
-          _describe 'profile' profiles
-          ;;
-        eks)
-          local -a eks_cmds
-          eks_cmds=(
-            'list:List EKS clusters for the active profile'
-            'update:Update kubeconfig for a specific EKS cluster'
-          )
-          _describe 'eks subcommand' eks_cmds
-          ;;
-      esac
+    --profile | profiles)
+      profiles=(${(f)"$(aws configure list-profiles 2>/dev/null)"})
+      _describe 'profile' profiles
+      ;;
+    eks)
+      local -a eks_cmds
+      eks_cmds=(
+        'list:List EKS clusters for the active profile'
+        'update:Update kubeconfig for a specific EKS cluster'
+      )
+      _describe 'eks subcommand' eks_cmds
       ;;
   esac
 }
