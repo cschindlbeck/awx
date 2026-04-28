@@ -255,6 +255,18 @@ awx_whoami() {
   aws_call "$profile" sts get-caller-identity
 }
 
+awx_profiles() {
+  require_cmd aws
+  while IFS= read -r profile; do
+    if AWS_PAGER="" aws sts get-caller-identity \
+         --profile "$profile" >/dev/null 2>&1; then
+      printf "%-40s ACTIVE\n" "$profile"
+    else
+      printf "%-40s EXPIRED\n" "$profile"
+    fi
+  done < <(aws configure list-profiles)
+}
+
 awx_eks() {
   local subcommand="${1:-}"
   local profile="${AWS_PROFILE:-}"
@@ -370,6 +382,9 @@ awx() {
       ;;
     whoami)
       awx_whoami
+      ;;
+    profiles)
+      awx_profiles
       ;;
     eks)
       [[ $# -gt 0 ]] && shift || true
