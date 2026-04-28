@@ -11,6 +11,8 @@
 
 _awx() {
   local -a commands profiles
+  local line
+  typeset -A opt_args
 
   commands=(
     'use:Select AWS profile and update kubeconfig'
@@ -21,7 +23,7 @@ _awx() {
     'help:Show help message'
   )
 
-  _arguments \
+  _arguments -C \
     '1: :->command' \
     '*: :->args'
 
