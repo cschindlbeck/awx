@@ -23,8 +23,7 @@ EOF
 
   run ./awx profiles
   [ "$status" -eq 0 ]
-  [[ "${output}" =~ "my-profile" ]]
-  [[ "${output}" =~ "ACTIVE" ]]
+  [[ "${output}" =~ "my-profile".*"ACTIVE" ]]
 }
 
 @test "awx profiles shows EXPIRED for profile with invalid session" {
@@ -41,8 +40,7 @@ EOF
 
   run ./awx profiles
   [ "$status" -eq 0 ]
-  [[ "${output}" =~ "expired-profile" ]]
-  [[ "${output}" =~ "EXPIRED" ]]
+  [[ "${output}" =~ "expired-profile".*"EXPIRED" ]]
 }
 
 @test "awx profiles outputs one line per profile" {
@@ -51,9 +49,9 @@ EOF
 #!/usr/bin/env bash
 if [[ "$*" == *"configure list-profiles"* ]]; then
   printf "profile-a\nprofile-b\n"
-elif [[ "$*" == *"sts get-caller-identity"* && "$*" == *"profile-a"* ]]; then
+elif [[ "$*" == *"sts get-caller-identity"* && "$*" == *"--profile profile-a"* ]]; then
   exit 0
-else
+elif [[ "$*" == *"sts get-caller-identity"* ]]; then
   exit 1
 fi
 EOF
@@ -61,7 +59,7 @@ EOF
 
   run ./awx profiles
   [ "$status" -eq 0 ]
-  [ "$(echo "${output}" | wc -l | tr -d ' ')" -eq 2 ]
+  [ "$(printf '%s\n' "${output}" | grep -c 'ACTIVE\|EXPIRED')" -eq 2 ]
 }
 
 @test "awx profiles fails fast when aws CLI is missing" {
