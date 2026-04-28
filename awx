@@ -258,8 +258,13 @@ awx_whoami() {
 awx_profiles() {
   # Only aws is needed here (no fzf/jq), so require_cmd aws is used directly
   require_cmd aws
+  local filter_profile="${1:-}"
   local profiles_out
-  profiles_out="$(aws configure list-profiles)" || die "Failed to list AWS profiles"
+  if [[ -n "$filter_profile" ]]; then
+    profiles_out="$filter_profile"
+  else
+    profiles_out="$(aws configure list-profiles)" || die "Failed to list AWS profiles"
+  fi
   while IFS= read -r profile; do
     if AWS_PAGER="" aws sts get-caller-identity \
       --profile "$profile" >/dev/null 2>&1; then
@@ -388,7 +393,8 @@ awx() {
       awx_whoami
       ;;
     profiles)
-      awx_profiles
+      [[ $# -gt 0 ]] && shift || true
+      awx_profiles "$@"
       ;;
     eks)
       [[ $# -gt 0 ]] && shift || true

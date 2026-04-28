@@ -42,6 +42,10 @@ _awx() {
           profiles=(${(f)"$(aws configure list-profiles 2>/dev/null)"})
           _describe 'profile' profiles
           ;;
+        profiles)
+          profiles=(${(f)"$(aws configure list-profiles 2>/dev/null)"})
+          _describe 'profile' profiles
+          ;;
         eks)
           local -a eks_cmds
           eks_cmds=(
