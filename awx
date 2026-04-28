@@ -368,6 +368,7 @@ show_help() {
   echo "  use [--profile P] [--cluster C]  Select AWS profile/cluster (interactive fallback)"
   echo "  <profile>                         Shortcut: set profile and update kubeconfig"
   echo "  whoami                            Display current AWS identity"
+  echo "  profiles                          List all profiles with session status (ACTIVE/EXPIRED)"
   echo "  eks list                          List EKS clusters for the active profile"
   echo "  eks update                        Update kubeconfig for a specific EKS cluster"
   echo "  logout                            Logout of the current AWS SSO session"
