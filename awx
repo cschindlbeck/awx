@@ -259,13 +259,22 @@ awx_profiles() {
   # Only aws is needed here (no fzf/jq), so require_cmd aws is used directly
   require_cmd aws
   local filter_profile="${1:-}"
-  local profiles_out
+  local profiles_out _awx_interrupted=0 _prev_int_trap
+
   if [[ -n "$filter_profile" ]]; then
     profiles_out="$filter_profile"
   else
     profiles_out="$(aws configure list-profiles)" || die "Failed to list AWS profiles"
   fi
+
+  # Save existing INT trap and set our own so Ctrl+C breaks the loop cleanly.
+  # This is necessary when awx is sourced: the interactive shell's SIGINT only
+  # kills the foreground subprocess (aws sts), not the while loop itself.
+  _prev_int_trap="$(trap -p INT)"
+  trap '_awx_interrupted=1' INT
+
   while IFS= read -r profile; do
+    if [[ "$_awx_interrupted" -eq 1 ]]; then break; fi
     if AWS_PAGER="" aws sts get-caller-identity \
       --profile "$profile" >/dev/null 2>&1; then
       printf "%-40s ACTIVE\n" "$profile"
@@ -273,6 +282,17 @@ awx_profiles() {
       printf "%-40s EXPIRED\n" "$profile"
     fi
   done <<<"$profiles_out"
+
+  # Restore the previous INT trap to leave the shell in a clean state
+  if [[ -n "$_prev_int_trap" ]]; then
+    eval "$_prev_int_trap"
+  else
+    trap - INT
+  fi
+
+  if [[ "$_awx_interrupted" -eq 1 ]]; then
+    return 130
+  fi
 }
 
 awx_eks() {
