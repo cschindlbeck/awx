@@ -2,3 +2,4 @@
 *.log
 mock_tmp
 .opencode
+mock/
