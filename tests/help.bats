@@ -33,7 +33,7 @@
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"___ _"* ]]
-  [[ "$output" == *"awx"* ]]
+  [[ "$output" == *"/_/ |_|__/|__/"* ]]
 }
 
 @test "awx help suppresses ASCII art when AWX_NO_ASCII=true" {

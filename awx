@@ -469,7 +469,7 @@ awx_prev() {
 }
 
 show_help() {
-  if [[ "${AWX_NO_ASCII:-false}" != "true" ]]; then
+  if [[ "$AWX_NO_ASCII" != "true" ]]; then
     cat <<'EOF'
    ___ _      __
   / _ | | /| / /
