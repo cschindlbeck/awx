@@ -122,6 +122,34 @@ select_profile() {
   aws configure list-profiles | fzf --prompt="Select AWS profile: "
 }
 
+validate_and_resolve_profile() {
+  local profile="$1"
+  local profiles
+  local matches
+  local selected
+
+  profiles="$(aws configure list-profiles)"
+
+  if grep -Fxq "$profile" <<<"$profiles"; then
+    printf "%s\n" "$profile"
+    return 0
+  fi
+
+  matches="$(grep -iF "$profile" <<<"$profiles" || true)"
+
+  if [[ -n "$matches" ]]; then
+    selected="$(printf "%s\n" "$matches" | fzf --prompt="Select AWS profile: ")"
+    if [[ -z "$selected" ]]; then
+      warn "No profile selected; keeping current AWS_PROFILE: ${AWS_PROFILE:-<unset>}"
+      return 1
+    fi
+    printf "%s\n" "$selected"
+  else
+    warn "No matching AWS profile found for '$profile'"
+    return 1
+  fi
+}
+
 list_clusters() {
   local profile="$1"
   local out=""
@@ -224,6 +252,8 @@ awx_use() {
       warn "No profile selected; keeping current AWS_PROFILE: ${AWS_PROFILE:-<unset>}"
       return 1
     fi
+  else
+    profile="$(validate_and_resolve_profile "$profile")" || return 1
   fi
 
   export AWS_PROFILE="$profile"
