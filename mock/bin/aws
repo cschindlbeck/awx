@@ -1,0 +1,6 @@
+#!/bin/bash
+if [[ "$*" == configure* ]]; then
+  echo "eu-central-1"
+else
+  echo '{ "clusters": ["cluster-debug"] }'
+fi

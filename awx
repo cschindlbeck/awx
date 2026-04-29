@@ -274,7 +274,12 @@ awx_eks() {
 
   case "$subcommand" in
     list)
-      list_clusters "$profile"
+      clusters="$(list_clusters "$profile")"
+      if [[ -z "$clusters" ]]; then
+        warn "No EKS clusters found for profile: $profile"
+        return 0
+      fi
+      printf "%s\n" "$clusters"
       ;;
     update)
       cluster="$(select_cluster_for_profile "$profile")" || die "No EKS cluster selected"

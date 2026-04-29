@@ -45,16 +45,21 @@ fi
 EOM
   chmod +x mock/bin/aws
 
-  # Have mock jq print the realistic output
-  echo -e "#!/bin/bash\necho '[WARN] No EKS clusters found for profile: valid_profile'" >mock/bin/jq
+  # Mock jq: validation succeeds but cluster extraction returns empty output,
+  # so the warning is emitted by awx_eks itself (not by this mock).
+  echo -e "#!/bin/bash\nexit 0" >mock/bin/jq
   chmod +x mock/bin/jq
+
+  # Mock fzf to satisfy check_deps
+  echo -e "#!/bin/bash\nexit 0" >mock/bin/fzf
+  chmod +x mock/bin/fzf
 
   export AWS_PROFILE="valid_profile"
 
   run ./awx eks list 2>&1
 
   [ "$status" -eq 0 ]
-  [[ "${output}" == *No\ EKS\ clusters\ found* ]]
+  [[ "${output}" == *"No EKS clusters found for profile: valid_profile"* ]]
 
   # Cleanup
   rm -rf mock
