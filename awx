@@ -28,6 +28,7 @@ fi
 AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"         # Retries for EKS API calls after SSO login
 AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}" # Seconds between EKS API retries
 AWX_STS_RETRIES="${AWX_STS_RETRIES:-10}"        # Retries waiting for STS after SSO login
+AWX_NO_ASCII="${AWX_NO_ASCII:-false}"           # Set to "true" to suppress ASCII art banner
 
 # ---------------------------------------------------------------------------
 # EKS cluster cache — avoids repeated AWS API calls
@@ -468,6 +469,15 @@ awx_prev() {
 }
 
 show_help() {
+  if [[ "${AWX_NO_ASCII:-false}" != "true" ]]; then
+    cat <<'EOF'
+   ___ _      __
+  / _ | | /| / /
+ / __ | |/ |/ /
+/_/ |_|__/|__/   awx
+
+EOF
+  fi
   echo "Usage: awx [command]"
   echo "Commands:"
   echo "  use [--profile P] [--cluster C]  Select AWS profile/cluster (interactive fallback)"

@@ -27,3 +27,19 @@
   [[ "$output" == *"eks update"* ]]
   [[ "$output" == *"help | -h"* ]]
 }
+
+@test "awx help displays ASCII art by default" {
+  run ./awx help
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"___ _"* ]]
+  [[ "$output" == *"awx"* ]]
+}
+
+@test "awx help suppresses ASCII art when AWX_NO_ASCII=true" {
+  AWX_NO_ASCII=true run ./awx help
+
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"___ _"* ]]
+  [[ "$output" == *"Usage: awx [command]"* ]]
+}
