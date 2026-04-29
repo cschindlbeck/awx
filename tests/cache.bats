@@ -23,7 +23,9 @@ fi
 EOM
   chmod +x mock/bin/aws
 
-  echo -e "#!/bin/bash\ncat" >mock/bin/jq
+  printf '#!/bin/bash
+cat
+' >mock/bin/jq
   chmod +x mock/bin/jq
 
   # Populate a fresh cache file
@@ -67,7 +69,9 @@ fi
 EOM
   chmod +x mock/bin/aws
 
-  echo -e "#!/bin/bash\ncat" >mock/bin/jq
+  printf '#!/bin/bash
+cat
+' >mock/bin/jq
   chmod +x mock/bin/jq
 
   # Point to an empty cache directory — no cache file present
@@ -108,7 +112,9 @@ fi
 EOM
   chmod +x mock/bin/aws
 
-  echo -e "#!/bin/bash\ncat" >mock/bin/jq
+  printf '#!/bin/bash
+cat
+' >mock/bin/jq
   chmod +x mock/bin/jq
 
   # Create a stale cache file (set mtime far in the past)

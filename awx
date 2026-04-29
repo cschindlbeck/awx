@@ -163,7 +163,9 @@ select_profile() {
 
 _eks_cache_path() {
   local profile="$1"
-  printf "%s/clusters_%s.json" "$AWX_CACHE_DIR" "$profile"
+  local safe_profile
+  safe_profile="${profile//[^a-zA-Z0-9._-]/_}"
+  printf "%s/clusters_%s.json" "$AWX_CACHE_DIR" "$safe_profile"
 }
 
 _eks_cache_valid() {
