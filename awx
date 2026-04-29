@@ -30,6 +30,12 @@ AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}" # Seconds between EKS API retrie
 AWX_STS_RETRIES="${AWX_STS_RETRIES:-10}"        # Retries waiting for STS after SSO login
 
 # ---------------------------------------------------------------------------
+# EKS cluster cache — avoids repeated AWS API calls
+# ---------------------------------------------------------------------------
+AWX_CACHE_DIR="${AWX_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/awx}"
+AWX_CACHE_TTL="${AWX_CACHE_TTL:-5}" # Cache TTL in minutes (default: 5)
+
+# ---------------------------------------------------------------------------
 # State management — persists current/previous environment for `awx -`
 # ---------------------------------------------------------------------------
 AWX_STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/awx"
@@ -155,10 +161,38 @@ select_profile() {
   printf "%s\n" "$profiles" | fzf --prompt="Select AWS profile: "
 }
 
+_eks_cache_path() {
+  local profile="$1"
+  printf "%s/clusters_%s.json" "$AWX_CACHE_DIR" "$profile"
+}
+
+_eks_cache_valid() {
+  local cache_file="$1"
+  [[ -f "$cache_file" ]] || return 1
+  [[ -n "$(find "$cache_file" -mmin "-${AWX_CACHE_TTL}" 2>/dev/null)" ]]
+}
+
+_eks_cache_write() {
+  local cache_file="$1"
+  local data="$2"
+  mkdir -p "$(dirname "$cache_file")"
+  printf "%s" "$data" >"$cache_file"
+}
+
 list_clusters() {
   local profile="$1"
   local out=""
   local i
+  local cache_file
+  cache_file="$(_eks_cache_path "$profile")"
+
+  if _eks_cache_valid "$cache_file"; then
+    if [[ "$DEBUG" == "true" ]]; then
+      log "EKS cluster cache hit for profile: $profile"
+    fi
+    jq -r '.clusters[]?' <"$cache_file"
+    return 0
+  fi
 
   # Ensure the SSO session is valid before attempting EKS API calls.
   # stdout is redirected to stderr so that log messages (e.g. "SSO session
@@ -192,6 +226,7 @@ list_clusters() {
     log "AWS RAW RESPONSE: $out"
   fi
 
+  _eks_cache_write "$cache_file" "$out"
   jq -r '.clusters[]?' <<<"$out"
 }
 
