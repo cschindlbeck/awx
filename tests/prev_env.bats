@@ -2,7 +2,7 @@
 
 setup() {
   export AWX_STATE_FILE="$(mktemp)"
-  rm -f "$AWX_STATE_FILE"  # start empty
+  rm -f "$AWX_STATE_FILE" # start empty
   mkdir -p "$(dirname "$AWX_STATE_FILE")"
 }
 
@@ -17,7 +17,8 @@ teardown() {
 
   cat >mock/bin/aws <<'EOM'
 #!/bin/bash
-if [[ "$*" == configure* ]]; then echo "eu-central-1"
+if [[ "$*" == *"list-profiles"* ]]; then echo "test-profile"
+elif [[ "$*" == *"sso_start_url"* ]]; then echo "https://sso.example.com"
 elif [[ "$*" == sts* ]]; then echo '{"UserId":"X","Account":"123","Arn":"arn:aws:iam::123:user/x"}'
 elif [[ "$*" == eks\ list-clusters* ]]; then echo '{"clusters":["test-cluster"]}'
 elif [[ "$*" == eks\ update-kubeconfig* ]]; then exit 0
@@ -27,7 +28,7 @@ EOM
 
   cat >mock/bin/fzf <<'EOM'
 #!/bin/bash
-echo "test-profile"
+head -n1
 EOM
   chmod +x mock/bin/fzf
 
