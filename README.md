@@ -72,7 +72,7 @@ $ awx
 # On a repeated call when the context already exists:
 $ awx
 [INFO] Using profile: client-A (region: eu-central-1)
-[INFO] Kubeconfig already up-to-date for cluster: cluster1-client-A (context: client-A)
+[INFO] Kubeconfig context already exists for cluster: cluster1-client-A, switching to context: client-A
 ```
 
 ## Installation
@@ -81,6 +81,7 @@ $ awx
 - [AWS CLI](https://aws.amazon.com/cli/)
 - [fzf](https://github.com/junegunn/fzf)
 - [jq](https://jqlang.org/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) _(optional but recommended — enables fast context switching without a full `aws eks update-kubeconfig` call)_
 
 ### 2. Clone and Set Up
 ```sh
@@ -189,8 +190,8 @@ Automated quality checks, formatting, and linting are enforced by [pre-commit](h
 
 ## Tips & Behavior
 - If required tools (`aws`, `fzf`, or `jq`) are missing, `awx` will tell you exactly what to install.
+- `kubectl` is an optional but recommended dependency. When present, `awx` skips `aws eks update-kubeconfig` if the target context (named after the profile) already exists in your kubeconfig, and instead calls `kubectl config use-context` directly — significantly reducing latency on repeated calls. Without `kubectl`, a full `aws eks update-kubeconfig` is always run.
 - `kubeconfig` is updated *per profile*; back up your old file if you need persistent custom setups.
-- When `kubectl` is available, `awx` skips `aws eks update-kubeconfig` if the target context (named after the profile) already exists in your kubeconfig, significantly reducing latency on repeated calls.
 - Make sure your AWS SSO setup is complete before using `awx use` for the first time.
 - Defaults to region from `AWS_REGION`, falling back to `eu-central-1` if unset.
 - EKS cluster results are cached per profile under `$XDG_CACHE_HOME/awx/` (falls back to `~/.cache/awx/`). The default TTL is 5 minutes and can be overridden with `AWX_CACHE_TTL=<minutes>`.

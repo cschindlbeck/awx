@@ -81,7 +81,7 @@ This framework ensures reproducible test coverage across edge cases, missing dep
 ### General Principles
 - **DRY Principle**: Adhere to "Don't Repeat Yourself" to reduce code duplication and ensure maintainability.
 - **Bash-only**: All project logic is in Bash, with no external syntax (Python, JS, etc.)
-- **Minimal dependencies**: Only common CLIs (`aws`, `fzf`, `jq`) are depended on—do not add new dependencies without justification.
+- **Minimal dependencies**: Only common CLIs (`aws`, `fzf`, `jq`) are depended on as hard requirements. `kubectl` is an optional dependency used for fast context switching—do not add new dependencies without justification.
 - **One-file approach**: Unless explicitly required, do not split code into new files/scripts.
 - **Error-first logic**: Fail early (using `die`); every critical external call is guarded.
 
@@ -186,7 +186,7 @@ All commits must follow [Conventional Commits](https://www.conventionalcommits.o
 - [ ] Keep all code in a single file unless justified
 - [ ] Document all new command-line options in usage output and this file
 - [ ] Do not introduce silent failures: all error conditions are surfaced
-- [ ] Confirm that all dependencies (aws, fzf, jq) are required and checked
+- [ ] Confirm that all dependencies (aws, fzf, jq) are required and checked; kubectl is optional but must be handled gracefully when absent
 - [ ] Run pre-commit run --all-files after each change in bash/shell scripts
 - [ ] Update README.md and AGENTS.md after each feature addition
 
