@@ -159,7 +159,8 @@ select_profile() {
     return 0
   fi
 
-  printf "%s\n" "$profiles" | fzf --prompt="Select AWS profile: "
+  printf "%s\n" "$profiles" | fzf --prompt="Select AWS profile: " \
+    --preview 'aws configure list --profile {}'
 }
 
 _eks_cache_path() {
@@ -251,7 +252,8 @@ select_cluster_for_profile() {
     return 0
   fi
 
-  printf "%s\n" "$clusters" | fzf --prompt="Select EKS cluster: "
+  printf "%s\n" "$clusters" | fzf --prompt="Select EKS cluster: " \
+    --preview "aws eks describe-cluster --name {} --region '${DEFAULT_REGION}'"
 }
 
 _kubeconfig_context_exists() {
