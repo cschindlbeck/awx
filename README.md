@@ -26,7 +26,7 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 - Shows your current AWS identity as confirmation
 - Friendly and clear error output with robust logging
 - **`awx profiles`** — Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status, without triggering SSO login
-- **EKS cluster caching** — cluster lists are cached per profile (default TTL: 5 min) to reduce AWS API calls
+- **EKS cluster caching** — cluster lists are cached per profile (default TTL: 8 hours) to reduce AWS API calls
 - ASCII art banner in help output (suppress with `AWX_NO_ASCII=true`)
 
 ## Usage
@@ -194,7 +194,7 @@ Automated quality checks, formatting, and linting are enforced by [pre-commit](h
 - `kubeconfig` is updated *per profile*; back up your old file if you need persistent custom setups.
 - Make sure your AWS SSO setup is complete before using `awx use` for the first time.
 - Defaults to region from `AWS_REGION`, falling back to `eu-central-1` if unset.
-- EKS cluster results are cached per profile under `$XDG_CACHE_HOME/awx/` (falls back to `~/.cache/awx/`). The default TTL is 5 minutes and can be overridden with `AWX_CACHE_TTL=<minutes>`.
+- EKS cluster results are cached per profile under `$XDG_CACHE_HOME/awx/` (falls back to `~/.cache/awx/`). The default TTL is 8 hours (480 minutes) and can be overridden with `AWX_CACHE_TTL=<minutes>`.
 
 ## Contributing
 Contributions, issues, and PRs are welcome!
