@@ -28,6 +28,7 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 - **`awx profiles`** — Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status, without triggering SSO login
 - **EKS cluster caching** — cluster lists are cached per profile (default TTL: 8 hours) to reduce AWS API calls
 - ASCII art banner in help output (suppress with `AWX_NO_ASCII=true`)
+- **`awx update`** — Self-update to the latest version from GitHub with a single command
 
 ## Usage
 `awx` is a versatile script for managing AWS profiles and EKS kubeconfig contexts. Below are the primary commands and their purposes:
@@ -50,6 +51,7 @@ awx eks update                               # Update kubeconfig for a specific 
 awx help or -h                               # Show detailed usage instructions
 awx logout                                   # Logout of the current AWS SSO session
 awx profiles                                 # List all configured AWS profiles with ACTIVE/EXPIRED session status
+awx update                                   # Update awx to the latest version from GitHub
 ```
 
 ### Toggle to previous environment
@@ -97,6 +99,12 @@ source ~/.zshrc   # or ~/.bashrc
 awx help
 ```
 
+To update `awx` at any time after installation:
+
+```bash
+awx update
+```
+
 **Environment overrides** (all optional):
 
 | Variable             | Default             | Purpose                                              |
@@ -124,7 +132,7 @@ INSTALL_DIR=~/bin NO_MODIFY_SHELL_RC=true \
 
 #### 2. Clone and Set Up
 ```sh
-git clone https://github.com/chris.schindlbeck/awx.git
+git clone https://github.com/cschindlbeck/awx.git
 cd awx
 chmod +x awx
 

@@ -20,7 +20,7 @@ INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local/bin}"
 AWX_DEST="${INSTALL_DIR}/awx"
 
 # ---------------------------------------------------------------------------
-# Colour support — only emit escape codes when stdout is a TTY with 8+ colours
+# Color support — only emit escape codes when stdout is a TTY with 8+ colours
 # ---------------------------------------------------------------------------
 if [[ -t 1 ]] && tput colors &>/dev/null && [[ "$(tput colors)" -ge 8 ]]; then
   COL_INFO="$(tput setaf 2)"
