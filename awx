@@ -135,7 +135,24 @@ aws_call() {
 }
 
 select_profile() {
-  aws configure list-profiles | fzf --prompt="Select AWS profile: "
+  local profiles
+  profiles="$(aws configure list-profiles)"
+
+  if [[ -z "$profiles" ]]; then
+    die "No AWS profiles configured. Run: aws configure sso"
+    return 1
+  fi
+
+  # No newline in the string means exactly one profile — auto-select it.
+  # Command substitution strips trailing newlines, so a single profile
+  # yields "name" (no newline), while multiple profiles yield "a\nb".
+  if [[ "$profiles" != *$'\n'* ]]; then
+    log "Auto-selecting the only available AWS profile: $profiles" >&2
+    printf "%s\n" "$profiles"
+    return 0
+  fi
+
+  printf "%s\n" "$profiles" | fzf --prompt="Select AWS profile: "
 }
 
 list_clusters() {
@@ -205,10 +222,11 @@ _eks_update_kubeconfig() {
   local region="${3:-$DEFAULT_REGION}"
 
   log "Updating kubeconfig for cluster: $cluster"
-  AWS_PAGER="" aws --profile "$profile" eks update-kubeconfig \
-    --region "$region" --name "$cluster" --alias "$profile" ||
+  if AWS_PAGER="" aws --profile "$profile" eks update-kubeconfig --region "$region" --name "$cluster" --alias "$profile" 2>/tmp/kubeconfig_debug.log; then
+    log "Kubeconfig updated successfully"
+  else
     die "Failed to update kubeconfig for cluster: $cluster"
-  log "Kubeconfig updated successfully"
+  fi
 }
 
 awx_use() {
@@ -218,17 +236,17 @@ awx_use() {
   # Parse optional flags; fall back to interactive when absent
   while [[ $# -gt 0 ]]; do
     case "$1" in
-    --profile)
-      [[ -n "${2:-}" ]] || die "--profile requires a value"
-      profile="$2"
-      shift 2
-      ;;
-    --cluster)
-      [[ -n "${2:-}" ]] || die "--cluster requires a value"
-      cluster="$2"
-      shift 2
-      ;;
-    *) die "Unknown flag: $1" ;;
+      --profile)
+        [[ -n "${2:-}" ]] || die "--profile requires a value"
+        profile="$2"
+        shift 2
+        ;;
+      --cluster)
+        [[ -n "${2:-}" ]] || die "--cluster requires a value"
+        cluster="$2"
+        shift 2
+        ;;
+      *) die "Unknown flag: $1" ;;
     esac
   done
 
@@ -329,17 +347,17 @@ awx_eks() {
   fi
 
   case "$subcommand" in
-  list)
-    list_clusters "$profile"
-    ;;
-  update)
-    cluster="$(select_cluster_for_profile "$profile")" || die "No EKS cluster selected"
-    _eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
-    _awx_state_write "$profile" "$cluster"
-    ;;
-  *)
-    die "Unknown eks subcommand: ${subcommand:-<empty>} (expected: list|update)"
-    ;;
+    list)
+      list_clusters "$profile"
+      ;;
+    update)
+      cluster="$(select_cluster_for_profile "$profile")" || die "No EKS cluster selected"
+      _eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
+      _awx_state_write "$profile" "$cluster"
+      ;;
+    *)
+      die "Unknown eks subcommand: ${subcommand:-<empty>} (expected: list|update)"
+      ;;
   esac
 }
 
@@ -385,9 +403,9 @@ awx_prev() {
   # profile (e.g. 'awx profiles' treated as a profile shortcut before the
   # command was registered in the dispatcher).
   case "$prev_profile" in
-  use | whoami | profiles | eks | logout | help | -)
-    die "State file contains reserved name '$prev_profile' as a profile — likely caused by sourcing an old version of awx. Delete $AWX_STATE_FILE to reset."
-    ;;
+    use | whoami | profiles | eks | logout | help | -)
+      die "State file contains reserved name '$prev_profile' as a profile — likely caused by sourcing an old version of awx. Delete $AWX_STATE_FILE to reset."
+      ;;
   esac
 
   # Swap state lines: previous becomes current, current becomes previous
@@ -430,39 +448,39 @@ awx() {
   local command="${1:-use}"
 
   case "$command" in
-  use)
-    [[ $# -gt 0 ]] && shift || true
-    awx_use "$@"
-    ;;
-  whoami)
-    awx_whoami
-    ;;
-  profiles)
-    [[ $# -gt 0 ]] && shift || true
-    awx_profiles "$@"
-    ;;
-  eks)
-    [[ $# -gt 0 ]] && shift || true
-    awx_eks "$@"
-    ;;
-  logout)
-    awx_logout
-    ;;
-  help | -h)
-    show_help
-    ;;
-  -)
-    awx_prev
-    ;;
-  --*)
-    # Top-level flags (e.g. awx --profile X) forwarded directly to awx_use.
-    awx_use "$@"
-    ;;
-  *)
-    # Treat an unrecognised argument as a profile shortcut.
-    # e.g. `awx my-profile` is equivalent to `awx use --profile my-profile`
-    awx_use --profile "$command"
-    ;;
+    use)
+      [[ $# -gt 0 ]] && shift || true
+      awx_use "$@"
+      ;;
+    whoami)
+      awx_whoami
+      ;;
+    profiles)
+      [[ $# -gt 0 ]] && shift || true
+      awx_profiles "$@"
+      ;;
+    eks)
+      [[ $# -gt 0 ]] && shift || true
+      awx_eks "$@"
+      ;;
+    logout)
+      awx_logout
+      ;;
+    help | -h)
+      show_help
+      ;;
+    -)
+      awx_prev
+      ;;
+    --*)
+      # Top-level flags (e.g. awx --profile X) forwarded directly to awx_use.
+      awx_use "$@"
+      ;;
+    *)
+      # Treat an unrecognised argument as a profile shortcut.
+      # e.g. `awx my-profile` is equivalent to `awx use --profile my-profile`
+      awx_use --profile "$command"
+      ;;
   esac
 }
 
