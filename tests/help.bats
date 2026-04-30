@@ -33,7 +33,19 @@
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"___ _"* ]]
-  [[ "$output" == *"/_/ |_|__/|__/"* ]]
+  [[ "$output" == *"/_/  |_|__/|__/"* ]]
+}
+
+@test "awx --help displays the help message" {
+  run ./awx --help
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Usage: awx [command]"* ]]
+  [[ "$output" == *"use [--profile P] [--cluster C]"* ]]
+  [[ "$output" == *"whoami"* ]]
+  [[ "$output" == *"eks list"* ]]
+  [[ "$output" == *"eks update"* ]]
+  [[ "$output" == *"help | -h"* ]]
 }
 
 @test "awx help suppresses ASCII art when AWX_NO_ASCII=true" {

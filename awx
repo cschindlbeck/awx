@@ -514,7 +514,7 @@ awx() {
     logout)
       awx_logout
       ;;
-    help | -h)
+    help | -h | --help)
       show_help
       ;;
     -)
