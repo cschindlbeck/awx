@@ -254,10 +254,24 @@ select_cluster_for_profile() {
   printf "%s\n" "$clusters" | fzf --prompt="Select EKS cluster: "
 }
 
+_kubeconfig_context_exists() {
+  local context="$1"
+  # Returns 0 only when kubectl is available AND the named context exists.
+  # If kubectl is absent the check is skipped and update-kubeconfig always runs.
+  command -v kubectl >/dev/null 2>&1 &&
+    kubectl config get-contexts -o name 2>/dev/null | grep -Fxq "$context"
+}
+
 _eks_update_kubeconfig() {
   local profile="$1"
   local cluster="$2"
   local region="${3:-$DEFAULT_REGION}"
+
+  if _kubeconfig_context_exists "$profile"; then
+    log "Kubeconfig context already exists for cluster: $cluster, switching to context: $profile"
+    kubectl config use-context "$profile" || die "Failed to switch to kube context: $profile"
+    return 0
+  fi
 
   log "Updating kubeconfig for cluster: $cluster"
   if AWS_PAGER="" aws --profile "$profile" eks update-kubeconfig --region "$region" --name "$cluster" --alias "$profile" 2>/tmp/kubeconfig_debug.log; then

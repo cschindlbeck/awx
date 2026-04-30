@@ -22,7 +22,7 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 - **`awx -`** — Toggle back to the previous AWS profile and EKS cluster (like `cd -` / `git checkout -`)
 - Zsh tab completion for commands, subcommands, and AWS profile names
 - SSO login automation; minimal credential hassle
-- Automatically updates current [`kubeconfig`](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+- Automatically updates current [`kubeconfig`](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) and **skips redundant updates** when the target context already exists (requires `kubectl`)
 - Shows your current AWS identity as confirmation
 - Friendly and clear error output with robust logging
 - **`awx profiles`** — Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status, without triggering SSO login
@@ -68,6 +68,11 @@ $ awx
 [INFO] Using profile: client-A (region: eu-central-1)
 [INFO] Updating kubeconfig for cluster: cluster1-client-A
 [INFO] Kubeconfig updated successfully
+
+# On a repeated call when the context already exists:
+$ awx
+[INFO] Using profile: client-A (region: eu-central-1)
+[INFO] Kubeconfig context already exists for cluster: cluster1-client-A, switching to context: client-A
 ```
 
 ## Installation
@@ -76,6 +81,7 @@ $ awx
 - [AWS CLI](https://aws.amazon.com/cli/)
 - [fzf](https://github.com/junegunn/fzf)
 - [jq](https://jqlang.org/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) _(optional but recommended — enables fast context switching without a full `aws eks update-kubeconfig` call)_
 
 ### 2. Clone and Set Up
 ```sh
@@ -184,6 +190,7 @@ Automated quality checks, formatting, and linting are enforced by [pre-commit](h
 
 ## Tips & Behavior
 - If required tools (`aws`, `fzf`, or `jq`) are missing, `awx` will tell you exactly what to install.
+- `kubectl` is an optional but recommended dependency. When present, `awx` skips `aws eks update-kubeconfig` if the target context (named after the profile) already exists in your kubeconfig, and instead calls `kubectl config use-context` directly — significantly reducing latency on repeated calls. Without `kubectl`, a full `aws eks update-kubeconfig` is always run.
 - `kubeconfig` is updated *per profile*; back up your old file if you need persistent custom setups.
 - Make sure your AWS SSO setup is complete before using `awx use` for the first time.
 - Defaults to region from `AWS_REGION`, falling back to `eu-central-1` if unset.

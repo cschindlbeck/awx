@@ -16,6 +16,15 @@ EOM
   chmod +x mock/bin/aws
   export PATH="$(pwd)/mock/bin:$PATH"
 
+  # Mock kubectl: no existing contexts by default (simulates empty kubeconfig)
+  kubectl() {
+    if [[ "$*" == "config get-contexts -o name" ]]; then
+      return 0
+    fi
+    return 1
+  }
+  export -f kubectl
+
   source ./awx
 }
 
@@ -31,6 +40,80 @@ teardown() {
 
 @test "_eks_update_kubeconfig uses DEFAULT_REGION if no region specified" {
   _eks_update_kubeconfig "$AWS_PROFILE" "test-cluster"
+  [ -f /tmp/last_aws_call ]
+  [ "$(cat /tmp/last_aws_call)" = "aws --profile test-profile eks update-kubeconfig --region us-west-2 --name test-cluster --alias test-profile" ]
+}
+
+@test "_eks_update_kubeconfig skips aws update-kubeconfig when context already exists" {
+  # Override kubectl mock to report the context as existing and capture use-context calls
+  rm -f /tmp/last_kubectl_use_context
+  kubectl() {
+    if [[ "$*" == "config get-contexts -o name" ]]; then
+      echo "test-profile"
+      return 0
+    fi
+    if [[ "$1 $2" == "config use-context" ]]; then
+      echo "kubectl $*" >/tmp/last_kubectl_use_context
+      return 0
+    fi
+    return 1
+  }
+  export -f kubectl
+
+  _eks_update_kubeconfig "$AWS_PROFILE" "test-cluster" "us-west-2"
+  # aws should NOT have been called
+  [ ! -f /tmp/last_aws_call ]
+}
+
+@test "_eks_update_kubeconfig calls kubectl use-context when context already exists" {
+  rm -f /tmp/last_kubectl_use_context
+  kubectl() {
+    if [[ "$*" == "config get-contexts -o name" ]]; then
+      echo "test-profile"
+      return 0
+    fi
+    if [[ "$1 $2" == "config use-context" ]]; then
+      echo "kubectl $*" >/tmp/last_kubectl_use_context
+      return 0
+    fi
+    return 1
+  }
+  export -f kubectl
+
+  _eks_update_kubeconfig "$AWS_PROFILE" "test-cluster" "us-west-2"
+  [ -f /tmp/last_kubectl_use_context ]
+  [ "$(cat /tmp/last_kubectl_use_context)" = "kubectl config use-context test-profile" ]
+}
+
+@test "_eks_update_kubeconfig logs skip message when context already exists" {
+  kubectl() {
+    if [[ "$*" == "config get-contexts -o name" ]]; then
+      echo "test-profile"
+      return 0
+    fi
+    if [[ "$1 $2" == "config use-context" ]]; then
+      return 0
+    fi
+    return 1
+  }
+  export -f kubectl
+
+  run _eks_update_kubeconfig "$AWS_PROFILE" "test-cluster" "us-west-2"
+  [ "$status" -eq 0 ]
+  [[ "${output}" =~ "switching to context" ]]
+}
+
+@test "_eks_update_kubeconfig runs update when context does not exist" {
+  kubectl() {
+    if [[ "$*" == "config get-contexts -o name" ]]; then
+      echo "other-context"
+      return 0
+    fi
+    return 1
+  }
+  export -f kubectl
+
+  _eks_update_kubeconfig "$AWS_PROFILE" "test-cluster" "us-west-2"
   [ -f /tmp/last_aws_call ]
   [ "$(cat /tmp/last_aws_call)" = "aws --profile test-profile eks update-kubeconfig --region us-west-2 --name test-cluster --alias test-profile" ]
 }
