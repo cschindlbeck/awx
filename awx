@@ -188,6 +188,7 @@ list_clusters() {
   local out=""
   local i
   local cache_file
+  local err_file
   cache_file="$(_eks_cache_path "$profile")"
 
   if _eks_cache_valid "$cache_file"; then
@@ -198,18 +199,21 @@ list_clusters() {
     return 0
   fi
 
+  err_file="$(mktemp)"
+
   # Ensure the SSO session is valid before attempting EKS API calls.
   # stdout is redirected to stderr so that log messages (e.g. "SSO session
   # expired") are shown to the user but do NOT flow into the stdout of this
   # function, which callers capture via $() to parse cluster names.
   aws_ensure_session "$profile" >&2 || {
+    rm -f "$err_file"
     die "Session unavailable for profile: $profile"
     return 1
   }
 
   for ((i = 1; i <= AWX_EKS_RETRIES; i++)); do
     if out="$(AWS_PAGER="" aws --profile "$profile" eks list-clusters \
-      --region "$DEFAULT_REGION" --output json 2>/tmp/awx_last_err)" &&
+      --region "$DEFAULT_REGION" --output json 2>"$err_file")" &&
       jq -e .clusters >/dev/null 2>&1 <<<"$out"; then
       break
     fi
@@ -221,7 +225,8 @@ list_clusters() {
   done
 
   if ! jq -e .clusters >/dev/null 2>&1 <<<"$out"; then
-    cat /tmp/awx_last_err >&2
+    cat "$err_file" >&2
+    rm -f "$err_file"
     die "Invalid API response: Failed to parse AWS EKS clusters. Check authentication and network connectivity."
     return 1
   fi
@@ -230,6 +235,7 @@ list_clusters() {
     log "AWS RAW RESPONSE: $out"
   fi
 
+  rm -f "$err_file"
   _eks_cache_write "$cache_file" "$out"
   jq -r '.clusters[]?' <<<"$out"
 }
