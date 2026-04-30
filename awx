@@ -33,7 +33,7 @@ AWX_STS_RETRIES="${AWX_STS_RETRIES:-10}"        # Retries waiting for STS after 
 # EKS cluster cache — avoids repeated AWS API calls
 # ---------------------------------------------------------------------------
 AWX_CACHE_DIR="${AWX_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/awx}"
-AWX_CACHE_TTL="${AWX_CACHE_TTL:-5}" # Cache TTL in minutes (default: 5)
+AWX_CACHE_TTL="${AWX_CACHE_TTL:-480}" # Cache TTL in minutes (default: 8h)
 
 # ---------------------------------------------------------------------------
 # State management — persists current/previous environment for `awx -`
