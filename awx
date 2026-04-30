@@ -134,6 +134,9 @@ aws_ensure_session() {
         return 0
       fi
 
+      # die() only returns 1 — it does not exit the function. An explicit
+      # return 1 is required here because set -e is suspended when this
+      # function is invoked in a || context (e.g. from list_clusters).
       die "SSO session not ready after login. Please run 'awx use' again."
       return 1
     fi
@@ -144,6 +147,8 @@ aws_ensure_session() {
       return 0
     fi
 
+    # die() only returns 1 — explicit return 1 guards against fall-through
+    # when set -e is suspended in a || context.
     die "AWS SSO login failed for profile: $profile"
     return 1
   elif [[ -n "$static_key" ]]; then
