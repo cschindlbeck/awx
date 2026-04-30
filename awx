@@ -424,7 +424,7 @@ awx_eks() {
 awx_update() {
   local self
   self="${BASH_SOURCE[0]}"
-  local raw_url="https://raw.githubusercontent.com/cschindlbeck/awx/main/awx"
+  local raw_url="${AWX_UPDATE_URL:-https://raw.githubusercontent.com/cschindlbeck/awx/main/awx}"
 
   require_cmd curl
 

@@ -15,13 +15,15 @@ setup() {
 
   cat >"${MOCK_BIN}/curl" <<MOCK
 #!/usr/bin/env bash
+# Minimal curl mock: handles \`curl -sSL <url> -o <dest>\` used by awx_update.
+# -sSL are flags with no arguments; URL is the first positional argument.
 url=""
 dest=""
 while [[ \$# -gt 0 ]]; do
   case "\$1" in
-    -sSL) url="\$2"; shift 2 ;;
-    -o)   dest="\$2"; shift 2 ;;
-    *)    shift ;;
+    -o) dest="\$2"; shift 2 ;;
+    -*) shift ;;
+    *)  [[ -z "\$url" ]] && url="\$1"; shift ;;
   esac
 done
 cp "${REPO_ROOT}/awx" "\$dest"
@@ -42,7 +44,9 @@ teardown() {
 # awx update replaces the script with the downloaded version
 # ---------------------------------------------------------------------------
 @test "awx update downloads latest awx and replaces itself" {
-  run env PATH="${MOCK_BIN}:${PATH}" bash "$AWX_COPY" update
+  run env PATH="${MOCK_BIN}:${PATH}" \
+    AWX_UPDATE_URL="https://raw.githubusercontent.com/cschindlbeck/awx/main/awx" \
+    bash "$AWX_COPY" update
 
   [ "$status" -eq 0 ]
   [[ "$output" =~ "updated successfully" ]]
@@ -54,7 +58,9 @@ teardown() {
 # awx update reports a useful message about reloading the shell
 # ---------------------------------------------------------------------------
 @test "awx update tells the user to reload the shell" {
-  run env PATH="${MOCK_BIN}:${PATH}" bash "$AWX_COPY" update
+  run env PATH="${MOCK_BIN}:${PATH}" \
+    AWX_UPDATE_URL="https://raw.githubusercontent.com/cschindlbeck/awx/main/awx" \
+    bash "$AWX_COPY" update
 
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Reload your shell" ]]
@@ -79,7 +85,9 @@ teardown() {
 @test "awx update fails when target file is not writable" {
   chmod -w "$AWX_COPY"
 
-  run env PATH="${MOCK_BIN}:${PATH}" bash "$AWX_COPY" update
+  run env PATH="${MOCK_BIN}:${PATH}" \
+    AWX_UPDATE_URL="https://raw.githubusercontent.com/cschindlbeck/awx/main/awx" \
+    bash "$AWX_COPY" update
 
   [ "$status" -ne 0 ]
   [[ "$output" =~ "Cannot write" ]]

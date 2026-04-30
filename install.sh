@@ -82,7 +82,11 @@ _detect_shell_rc() {
   case "$shell_name" in
     zsh) printf "%s/.zshrc" "$HOME" ;;
     bash) printf "%s/.bashrc" "$HOME" ;;
-    *) printf "%s/.profile" "$HOME" ;;
+    *)
+      warn "Unknown shell '${shell_name}'. Set SHELL_RC to the correct config file."
+      warn "Example: SHELL_RC=~/.config/fish/config.fish bash install.sh"
+      printf "%s/.bashrc" "$HOME"
+      ;;
   esac
 }
 
@@ -95,7 +99,7 @@ if [[ "${NO_MODIFY_SHELL_RC:-}" == "true" ]]; then
 elif grep -qF "$SOURCE_LINE" "$SHELL_RC" 2>/dev/null; then
   log "Shell integration already present in ${SHELL_RC}"
 else
-  printf "\n# awx — AWS profile & EKS context switcher\n%s\n" "$SOURCE_LINE" >>"$SHELL_RC"
+  printf "\n# awx - AWS profile & EKS context switcher\n%s\n" "$SOURCE_LINE" >>"$SHELL_RC"
   log "Added shell integration to ${SHELL_RC}"
   log "Reload your shell: source ${SHELL_RC}"
 fi

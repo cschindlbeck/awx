@@ -22,14 +22,15 @@ setup() {
   # Write the mock with the repo root baked in so it works from any directory
   cat >"${MOCK_BIN}/curl" <<MOCK
 #!/usr/bin/env bash
-# Minimal curl mock: handles \`-sSL <url> -o <dest>\` used by install.sh
+# Minimal curl mock: handles \`curl -sSL <url> -o <dest>\` used by install.sh.
+# -sSL are flags with no arguments; URL is the first positional argument.
 url=""
 dest=""
 while [[ \$# -gt 0 ]]; do
   case "\$1" in
-    -sSL) url="\$2"; shift 2 ;;
     -o)   dest="\$2"; shift 2 ;;
-    *)    shift ;;
+    -*)   shift ;;
+    *)    [[ -z "\$url" ]] && url="\$1"; shift ;;
   esac
 done
 REPO_ROOT="${REPO_ROOT}"
