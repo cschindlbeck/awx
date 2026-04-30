@@ -99,7 +99,6 @@ if [[ "$*" == configure* ]]; then
 elif [[ "$*" == sts* ]]; then
   echo '{ "UserId": "test", "Account": "123", "Arn": "arn:aws:iam::123:user/test" }'
 else
-  sleep 0.1
   echo '{ "clusters": ["cluster-a"] }'
 fi
 EOM
