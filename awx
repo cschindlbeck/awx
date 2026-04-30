@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 _awx_is_sourced=0
-(return 0 2>/dev/null) && _awx_is_sourced=1 || true
+if (return 0 2>/dev/null); then _awx_is_sourced=1; fi
 
 if [[ "$_awx_is_sourced" -eq 0 ]]; then
   set -euo pipefail
@@ -511,18 +511,18 @@ awx() {
 
   case "$command" in
     use)
-      [[ $# -gt 0 ]] && shift || true
+      if [[ $# -gt 0 ]]; then shift; fi
       awx_use "$@"
       ;;
     whoami)
       awx_whoami
       ;;
     profiles)
-      [[ $# -gt 0 ]] && shift || true
+      if [[ $# -gt 0 ]]; then shift; fi
       awx_profiles "$@"
       ;;
     eks)
-      [[ $# -gt 0 ]] && shift || true
+      if [[ $# -gt 0 ]]; then shift; fi
       awx_eks "$@"
       ;;
     logout)
