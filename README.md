@@ -71,13 +71,14 @@ $ awx
 ```sh
 git clone https://github.com/chris.schindlbeck/awx.git
 cd awx
-chmod +x awx
 
-# Option 1: Source in ~/.zshrc (add one of these lines):
-# source /path/to/awx          # using full path
-# source $(pwd)/awx             # using relative path (if in repo)
+# Option 1: Install via make (symlinks awx to ~/.local/bin)
+make install
 
-# Option 2: Use with oh-my-zsh (or similar setup)
+# Option 2: Source in ~/.zshrc
+# Add to your ~/.zshrc: source /path/to/awx
+
+# Option 3: Use with oh-my-zsh
 ln -s $(pwd)/awx ~/.oh-my-zsh/custom/awx.zsh
 ```
 
