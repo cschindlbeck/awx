@@ -94,34 +94,64 @@ check_deps() {
 aws_ensure_session() {
   local profile="$1"
 
-  # Verify SSO config first
-  local sso_test_err
-  sso_test_err="$(AWS_PAGER="" aws configure get sso_start_url --profile "$profile" 2>&1 || true)"
-  if [[ -z "${sso_test_err// /}" ]]; then
-    die "Profile '$profile' is missing required SSO configuration.\nRun: aws configure sso --profile $profile"
-  fi
+  # Detect SSO configuration for this profile
+  local sso_start_url
+  sso_start_url="$(AWS_PAGER="" aws configure get sso_start_url --profile "$profile" 2>/dev/null || true)"
+  sso_start_url="${sso_start_url// /}"
 
-  if aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
-    return 0
-  fi
+  # Detect static credentials for this profile
+  local static_key
+  static_key="$(AWS_PAGER="" aws configure get aws_access_key_id --profile "$profile" 2>/dev/null || true)"
+  static_key="${static_key// /}"
 
-  log "SSO session expired or not authenticated for profile: $profile"
-  aws sso login --profile "$profile" || die "AWS SSO login failed for profile: $profile"
-
-  # Retry loop to wait for SSO credentials to propagate after login.
-  # 10 attempts x 1s covers slow browser confirmation without hanging forever.
-  local sts_ready=0
-  for ((i = 0; i < AWX_STS_RETRIES; i++)); do
+  if [[ -n "$sso_start_url" ]]; then
+    # SSO-based profile: verify or establish SSO session
     if aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
-      sts_ready=1
-      break
+      return 0
     fi
-    log "Waiting for SSO session to stabilize..."
-    sleep 1
-  done
 
-  if [[ "$sts_ready" -eq 0 ]]; then
-    die "SSO session not ready after login. Please run 'awx use' again."
+    log "SSO session expired or not authenticated for profile: $profile"
+    if aws sso login --profile "$profile"; then
+      # Retry loop to wait for SSO credentials to propagate after login.
+      # AWX_STS_RETRIES attempts x 1s covers slow browser confirmation without hanging forever.
+      local sts_ready=0
+      for ((i = 0; i < AWX_STS_RETRIES; i++)); do
+        if aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
+          sts_ready=1
+          break
+        fi
+        log "Waiting for SSO session to stabilize..."
+        sleep 1
+      done
+
+      if [[ "$sts_ready" -eq 1 ]]; then
+        return 0
+      fi
+
+      # SSO login succeeded but STS never stabilized — fall back to static credentials if available
+      if [[ -n "$static_key" ]]; then
+        warn "SSO failed, falling back to static credentials for profile: $profile"
+        return 0
+      fi
+
+      die "SSO session not ready after login. Please run 'awx use' again."
+      return 1
+    fi
+
+    # SSO login itself failed — fall back to static credentials if available
+    if [[ -n "$static_key" ]]; then
+      warn "SSO failed, falling back to static credentials for profile: $profile"
+      return 0
+    fi
+
+    die "AWS SSO login failed for profile: $profile"
+    return 1
+  elif [[ -n "$static_key" ]]; then
+    # Static credential profile: use directly without SSO login
+    log "Using static credentials for profile: $profile"
+    return 0
+  else
+    die "No valid authentication method found for profile: $profile"
     return 1
   fi
 }

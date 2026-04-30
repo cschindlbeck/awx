@@ -12,7 +12,7 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 
 ## Overview
 
-`awx` is a minimal Bash CLI to streamline AWS SSO login, profile switching, and EKS kubeconfig management for multi-account AWS setups with EKS clusters.
+`awx` is a minimal Bash CLI to streamline AWS profile switching and EKS kubeconfig management for multi-account AWS setups. It supports both SSO-based and static credential profiles transparently.
 
 ## Features
 
@@ -21,7 +21,8 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 - Profile shortcut: `awx profile-name` as an alias for `awx use --profile profile-name`
 - **`awx -`** — Toggle back to the previous AWS profile and EKS cluster (like `cd -` / `git checkout -`)
 - Zsh tab completion for commands, subcommands, and AWS profile names
-- SSO login automation; minimal credential hassle
+- **Supports both SSO and static credential profiles** — detects credential type per profile automatically
+- SSO login automation with graceful fallback to static credentials when SSO fails
 - Automatically updates current [`kubeconfig`](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
 - Shows your current AWS identity as confirmation
 - Friendly and clear error output with robust logging
@@ -161,7 +162,8 @@ Automated quality checks, formatting, and linting are enforced by [pre-commit](h
 ## Tips & Behavior
 - If required tools (`aws`, `fzf`, or `jq`) are missing, `awx` will tell you exactly what to install.
 - `kubeconfig` is updated *per profile*; back up your old file if you need persistent custom setups.
-- Make sure your AWS SSO setup is complete before using `awx use` for the first time.
+- **Credential detection is automatic**: `awx` checks for `sso_start_url` to detect SSO profiles and `aws_access_key_id` for static credentials. No manual configuration required.
+- If a profile has both SSO and static credentials configured, SSO is attempted first. On SSO failure, `awx` falls back to static credentials automatically.
 - Defaults to region from `AWS_REGION`, falling back to `eu-central-1` if unset.
 
 ## Contributing
