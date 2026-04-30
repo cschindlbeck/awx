@@ -27,6 +27,7 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 - Friendly and clear error output with robust logging
 - **`awx profiles`** — Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status, without triggering SSO login
 - **EKS cluster caching** — cluster lists are cached per profile (default TTL: 5 min) to reduce AWS API calls
+- ASCII art banner in help output (suppress with `AWX_NO_ASCII=true`)
 
 ## Usage
 `awx` is a versatile script for managing AWS profiles and EKS kubeconfig contexts. Below are the primary commands and their purposes:
