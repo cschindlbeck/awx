@@ -76,7 +76,6 @@ EOM
 
   # First fzf call selects a profile; second selects a cluster.
   # Both should receive --preview; capture all args for assertion.
-  _fzf_call=0
   cat >mock/bin/fzf <<'EOM'
 #!/bin/bash
 echo "fzf_args: $*" >&2

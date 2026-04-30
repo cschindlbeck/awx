@@ -253,7 +253,7 @@ select_cluster_for_profile() {
   fi
 
   printf "%s\n" "$clusters" | fzf --prompt="Select EKS cluster: " \
-    --preview "aws eks describe-cluster --name {} --region ${DEFAULT_REGION}"
+    --preview "aws eks describe-cluster --name {} --region '${DEFAULT_REGION}'"
 }
 
 _kubeconfig_context_exists() {
