@@ -114,6 +114,18 @@ cp completions/_awx ~/.oh-my-zsh/completions/
 This project uses automated tests and pre-commit hooks that run in CI to ensure code quality and correct behavior.
 **All contributors should run both locally before pushing or submitting a pull request.**
 
+A `Makefile` provides a single, discoverable interface for the most common development workflows:
+
+| Command        | Description                              |
+|----------------|------------------------------------------|
+| `make help`    | List all available targets               |
+| `make test`    | Run all bats tests                       |
+| `make lint`    | Run pre-commit hooks on all files        |
+| `make check`   | Run tests **and** lint                   |
+| `make install` | Symlink `awx` to `~/.local/bin`          |
+| `make dev`     | Check development dependency status      |
+| `make clean`   | Remove pre-commit cache and temp files   |
+
 ### 1. Automated Tests (bats)
 - The main suite is written in `bats-core`. To use:
 
@@ -130,7 +142,11 @@ This project uses automated tests and pre-commit hooks that run in CI to ensure 
   export PATH=$HOME/bats-local/bin:$PATH
   ```
 
-- To run all tests:
+- To run all tests via Make:
+  ```bash
+  make test
+  ```
+- Or run bats directly:
   ```bash
   bats tests
   ```
@@ -150,13 +166,17 @@ not ok 2 awx whoami with missing AWS_PROFILE
 ### 2. Pre-commit Hooks
 Automated quality checks, formatting, and linting are enforced by [pre-commit](https://pre-commit.com/).
 
-- To manually check pre-commit hooks:
+- To run pre-commit hooks via Make:
+  ```sh
+  make lint
+  ```
+- Or run pre-commit directly:
   ```sh
   pre-commit run --all-files
   ```
 - These hooks run automatically on commit/pull request via GitHub Actions. **You must pass these checks for your contributions to be accepted.**
 
-**Best practice: Always run both the test suite and pre-commit before committing or opening a PR.**
+**Best practice: Always run `make check` before committing or opening a PR.**
 
 ## Tips & Behavior
 - If required tools (`aws`, `fzf`, or `jq`) are missing, `awx` will tell you exactly what to install.
@@ -170,9 +190,6 @@ Contributions, issues, and PRs are welcome!
 To develop locally:
 1. Fork & clone.
 2. Install dependencies (see above).
-3. Make changes on a new branch.
-4. Run all tests and hooks as described above before opening a PR:
-```sh
-bats tests/
-pre-commit run --all-files
-```
+3. Run `make dev` to verify your local toolchain.
+4. Make changes on a new branch.
+5. Run `make check` before opening a PR (runs tests and lint together).
