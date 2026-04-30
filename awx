@@ -268,7 +268,8 @@ _eks_update_kubeconfig() {
   local region="${3:-$DEFAULT_REGION}"
 
   if _kubeconfig_context_exists "$profile"; then
-    log "Kubeconfig already up-to-date for cluster: $cluster (context: $profile)"
+    log "Kubeconfig context already exists for cluster: $cluster, switching to context: $profile"
+    kubectl config use-context "$profile" || die "Failed to switch to kube context: $profile"
     return 0
   fi
 

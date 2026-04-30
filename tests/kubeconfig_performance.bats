@@ -51,11 +51,14 @@ teardown() {
 }
 
 @test "update-kubeconfig is skipped when context already exists" {
-  # Mock kubectl to report context as already existing
+  # Mock kubectl to report context as already existing and accept use-context
   cat >mock/bin/kubectl <<'EOM'
 #!/bin/bash
 if [[ "$*" == "config get-contexts -o name" ]]; then
   echo "perf-profile"
+  exit 0
+fi
+if [[ "$1 $2" == "config use-context" ]]; then
   exit 0
 fi
 exit 1
@@ -67,7 +70,7 @@ EOM
   [ "$status" -eq 0 ]
   # update-kubeconfig must not have been called
   [ ! -f /tmp/awx_update_kubeconfig_calls ]
-  [[ "${output}" =~ "already up-to-date" ]]
+  [[ "${output}" =~ "switching to context" ]]
 }
 
 @test "update-kubeconfig is called when context does not exist" {
@@ -110,6 +113,9 @@ if [[ "$*" == "config get-contexts -o name" ]]; then
   fi
   exit 0
 fi
+if [[ "$1 $2" == "config use-context" ]]; then
+  exit 0
+fi
 exit 1
 EOM
   chmod +x mock/bin/kubectl
@@ -126,7 +132,7 @@ EOM
   [ "$status" -eq 0 ]
   second_count="$(wc -l </tmp/awx_update_kubeconfig_calls | tr -d ' ')"
   [ "$second_count" -eq 1 ]
-  [[ "${output}" =~ "already up-to-date" ]]
+  [[ "${output}" =~ "switching to context" ]]
 }
 
 @test "awx - toggle calls update-kubeconfig for previous cluster context" {
@@ -151,6 +157,9 @@ if [[ "$*" == "config get-contexts -o name" ]]; then
   echo "perf-profile"
   exit 0
 fi
+if [[ "$1 $2" == "config use-context" ]]; then
+  exit 0
+fi
 exit 1
 EOM
   chmod +x mock/bin/kubectl
@@ -160,5 +169,5 @@ EOM
   [ "$status" -eq 0 ]
   # Context is matched by profile name, not cluster name
   [ ! -f /tmp/awx_update_kubeconfig_calls ]
-  [[ "${output}" =~ "already up-to-date" ]]
+  [[ "${output}" =~ "switching to context" ]]
 }
