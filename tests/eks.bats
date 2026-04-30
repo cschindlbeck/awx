@@ -164,13 +164,17 @@ EOM
   mkdir -p mock/bin
   export PATH="$(pwd)/mock/bin:$PATH"
 
-  # Mock aws: STS always fails (browser never confirmed), SSO login succeeds
+  # Mock aws: STS always fails (browser never confirmed), SSO login succeeds, no static credentials
   cat >mock/bin/aws <<'EOM'
 #!/bin/bash
 if [[ "$*" == sts* ]]; then
   exit 1
 elif [[ "$*" == sso* ]]; then
   exit 0
+elif [[ "$*" == *"sso_start_url"* ]]; then
+  echo "https://my-sso.awsapps.com/start"
+elif [[ "$*" == *"aws_access_key_id"* ]]; then
+  exit 1
 elif [[ "$*" == configure* ]]; then
   echo "eu-central-1"
 else
