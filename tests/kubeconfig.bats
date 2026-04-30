@@ -5,6 +5,7 @@ setup() {
   export KUBECONFIG="$(pwd)/test-config/kubeconfig"
   export AWS_PROFILE="test-profile"
   export DEFAULT_REGION="us-west-2"
+  export AWX_CACHE_DIR="$(pwd)/test-config/cache"
 }
 
 teardown() {
