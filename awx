@@ -8,7 +8,23 @@ if [[ "$_awx_is_sourced" -eq 0 ]]; then
 fi
 
 DEFAULT_REGION="${DEFAULT_REGION:-${AWS_REGION:-eu-central-1}}"
-DEBUG="${DEBUG:-false}"                         # Enable debug mode for troubleshooting
+DEBUG="${DEBUG:-false}" # Enable debug mode for troubleshooting
+
+# ---------------------------------------------------------------------------
+# Colour support — only emit escape codes when stdout is a TTY with 8+ colours
+# ---------------------------------------------------------------------------
+if [[ -t 1 ]] && tput colors &>/dev/null && [[ "$(tput colors)" -ge 8 ]]; then
+  COL_INFO="$(tput setaf 2)"
+  COL_WARN="$(tput setaf 3)"
+  COL_ERR="$(tput setaf 1)"
+  COL_RESET="$(tput sgr0)"
+else
+  COL_INFO=""
+  COL_WARN=""
+  COL_ERR=""
+  COL_RESET=""
+fi
+
 AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"         # Retries for EKS API calls after SSO login
 AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}" # Seconds between EKS API retries
 AWX_STS_RETRIES="${AWX_STS_RETRIES:-10}"        # Retries waiting for STS after SSO login
@@ -49,15 +65,15 @@ _awx_state_read_previous() {
 }
 
 log() {
-  printf "[INFO] %s\n" "$*"
+  printf "%s[INFO]%s %s\n" "$COL_INFO" "$COL_RESET" "$*"
 }
 
 warn() {
-  printf "[WARN] %s\n" "$*" >&2
+  printf "%s[WARN]%s %s\n" "$COL_WARN" "$COL_RESET" "$*" >&2
 }
 
 error() {
-  printf "[ERROR] %s\n" "$*" >&2
+  printf "%s[ERROR]%s %s\n" "$COL_ERR" "$COL_RESET" "$*" >&2
 }
 
 die() {
