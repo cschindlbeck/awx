@@ -432,10 +432,10 @@ awx_update() {
     die "Cannot write to ${self}. Check file permissions."
   fi
 
-  log "Updating awx at ${self} ..."
+  log "Updating awx..."
   curl -sSL "$raw_url" -o "$self" || die "Failed to download update from ${raw_url}"
   chmod +x "$self"
-  log "awx updated successfully."
+  log "...awx updated successfully."
   log "Reload your shell to apply the update: source ${self}"
 }
 
