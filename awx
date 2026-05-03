@@ -432,7 +432,7 @@ awx_update() {
 
   require_cmd curl
 
-  self="$(command -v awx)"
+  self="$(readlink -f "${BASH_SOURCE[0]}")"
 
   [[ -z "$self" ]] && die "Could not determine awx executable path."
 
