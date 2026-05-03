@@ -32,11 +32,14 @@ EOF
   export AWX_STATE_FILE
   AWX_STATE_FILE="$(mktemp)"
   rm -f "$AWX_STATE_FILE"
+  export AWX_CACHE_DIR
+  AWX_CACHE_DIR="$(mktemp -d)"
 }
 
 teardown() {
   rm -rf mock
   rm -f "${AWX_STATE_FILE:-}"
+  rm -rf "${AWX_CACHE_DIR:-}"
 }
 
 # ---------------------------------------------------------------------------

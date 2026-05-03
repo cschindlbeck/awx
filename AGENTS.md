@@ -1,16 +1,29 @@
 # AGENTS.md
 
 ## Overview
-This repository contains a Bash CLI script (`awx`) for lightweight AWS profile and EKS kubeconfig management. There are no formal unit tests or build/lint automation; the repo is designed to be a minimal, single-file, dependency-light solution. This guide describes manual validation steps, code contribution style, and Bash best practices for all agentic coding agents contributing here.
+This repository contains a Bash CLI script (`awx`) for lightweight AWS profile and EKS kubeconfig management. The project is designed to be a minimal, single-file, dependency-light solution. A `Makefile` provides a standardized interface for common development workflows (testing, linting, installation). This guide describes validation steps, code contribution style, and Bash best practices for all agentic coding agents contributing here.
 
 ---
 
 ## 🚀 Build, Lint, and Test Commands
 
+### Makefile (recommended)
+A `Makefile` is provided as the primary interface for common development tasks:
+
+| Command        | Description                              |
+|----------------|------------------------------------------|
+| `make help`    | List all available targets               |
+| `make test`    | Run all bats tests                       |
+| `make lint`    | Run pre-commit hooks on all files        |
+| `make check`   | Run tests **and** lint                   |
+| `make install` | Symlink `awx` to `~/.local/bin`          |
+| `make dev`     | Check development dependency status      |
+| `make clean`   | Remove pre-commit cache and temp files   |
+
 ### Pre-commit GitHub Actions (GHA)
 - Automated formatting and lint checks are enforced via [pre-commit](https://pre-commit.com/) GitHub Actions on commits and pull requests.
 - The [`pre-commit`](.github/workflows/pre-commit.yml) workflow must pass: it runs hooks for code formatting, shell style, and basic static checks across all supported Python versions (for relevant hooks).
-- To check your changes locally, [install pre-commit](https://pre-commit.com/#install) and run `pre-commit run --all-files` before pushing.
+- To check your changes locally, run `make lint` or `pre-commit run --all-files` before pushing.
 - Developers are required to execute this command before committing or pushing any changes.
 - All contributors are expected to resolve pre-commit issues before submitting PRs.
 
@@ -68,7 +81,7 @@ This framework ensures reproducible test coverage across edge cases, missing dep
 ### General Principles
 - **DRY Principle**: Adhere to "Don't Repeat Yourself" to reduce code duplication and ensure maintainability.
 - **Bash-only**: All project logic is in Bash, with no external syntax (Python, JS, etc.)
-- **Minimal dependencies**: Only common CLIs (`aws`, `fzf`, `jq`) are depended on—do not add new dependencies without justification.
+- **Minimal dependencies**: Only common CLIs (`aws`, `fzf`, `jq`) are depended on as hard requirements. `kubectl` is an optional dependency used for fast context switching—do not add new dependencies without justification.
 - **One-file approach**: Unless explicitly required, do not split code into new files/scripts.
 - **Error-first logic**: Fail early (using `die`); every critical external call is guarded.
 
@@ -141,10 +154,11 @@ All commits must follow [Conventional Commits](https://www.conventionalcommits.o
 ### Workflow Steps
 1. Create a new branch from `main` or `dev` (depending on the common last root) using the naming convention above
 2. Implement your changes
-3. Ensure all pre-commit checks pass: `pre-commit run --all-files`
-4. Commit with a descriptive message following Conventional Commits
-5. Push your branch and create a pull request
-6. Do not merge without approval from maintainers
+3. Run `make dev` to verify your local toolchain
+4. Ensure all pre-commit checks pass: `make lint` (or `pre-commit run --all-files`)
+5. Commit with a descriptive message following Conventional Commits
+6. Push your branch and create a pull request
+7. Do not merge without approval from maintainers
 
 ---
 
@@ -156,10 +170,10 @@ All commits must follow [Conventional Commits](https://www.conventionalcommits.o
 ---
 
 ## 🛑 What Not To Do
-- Do **not** add language-specific automation support (Makefile, tox, npm, etc.) unless project expands its scope.
-- Do **not** break single-file nature without express reason.
+- Do **not** break single-file nature of the `awx` script without express reason.
 - Do **not** relax Bash strict mode.
 - Do **not** add dependency on shell features beyond bash POSIX compatibility.
+- Do **not** add new language runtimes (Python, Node, etc.) to the core toolchain.
 
 ---
 
@@ -172,7 +186,7 @@ All commits must follow [Conventional Commits](https://www.conventionalcommits.o
 - [ ] Keep all code in a single file unless justified
 - [ ] Document all new command-line options in usage output and this file
 - [ ] Do not introduce silent failures: all error conditions are surfaced
-- [ ] Confirm that all dependencies (aws, fzf, jq) are required and checked
+- [ ] Confirm that all dependencies (aws, fzf, jq) are required and checked; kubectl is optional but must be handled gracefully when absent
 - [ ] Run pre-commit run --all-files after each change in bash/shell scripts
 - [ ] Update README.md and AGENTS.md after each feature addition
 

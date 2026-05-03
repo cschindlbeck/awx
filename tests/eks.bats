@@ -1,5 +1,15 @@
 #!/usr/bin/env bats
 
+setup() {
+  export AWX_CACHE_DIR
+  AWX_CACHE_DIR="$(mktemp -d)"
+}
+
+teardown() {
+  rm -rf "${AWX_CACHE_DIR:-}"
+  rm -rf mock
+}
+
 @test "awx eks list with valid clusters" {
   mkdir -p mock/bin
   export PATH="$(pwd)/mock/bin:$PATH"
