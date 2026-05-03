@@ -423,22 +423,29 @@ awx_eks() {
 
 awx_update() {
   local self
-  self="${BASH_SOURCE[0]}"
   local raw_url="${AWX_UPDATE_URL:-https://raw.githubusercontent.com/cschindlbeck/awx/main/awx}"
 
   require_cmd curl
+
+  self="$(command -v awx)"
+
+  [[ -z "$self" ]] && die "Could not determine awx executable path."
+
+  if [[ ! -f "$self" ]]; then
+    die "Resolved awx path is not a file: $self"
+  fi
 
   if [[ ! -w "$self" ]]; then
     die "Cannot write to ${self}. Check file permissions."
   fi
 
   log "Updating awx..."
-  curl -sSL "$raw_url" -o "$self" || die "Failed to download update from ${raw_url}"
-  chmod +x "$self"
-  log "...awx updated successfully."
-  log "Reload your shell to apply the update: source ${self}"
-}
+  curl -fsSL "$raw_url" -o "$self" || die "Failed to download update from ${raw_url}"
+  chmod +x "$self" || die "Failed to make ${self} executable."
 
+  log "...awx updated successfully."
+  log "Reload your shell to apply the update."
+}
 awx_logout() {
   local profile="${AWS_PROFILE:-}"
 
