@@ -421,6 +421,24 @@ awx_eks() {
   esac
 }
 
+awx_update() {
+  local self
+  self="${BASH_SOURCE[0]}"
+  local raw_url="${AWX_UPDATE_URL:-https://raw.githubusercontent.com/cschindlbeck/awx/main/awx}"
+
+  require_cmd curl
+
+  if [[ ! -w "$self" ]]; then
+    die "Cannot write to ${self}. Check file permissions."
+  fi
+
+  log "Updating awx at ${self} ..."
+  curl -sSL "$raw_url" -o "$self" || die "Failed to download update from ${raw_url}"
+  chmod +x "$self"
+  log "awx updated successfully."
+  log "Reload your shell to apply the update: source ${self}"
+}
+
 awx_logout() {
   local profile="${AWS_PROFILE:-}"
 
@@ -510,6 +528,7 @@ EOF
   echo "  eks list                          List EKS clusters for the active profile"
   echo "  eks update                        Update kubeconfig for a specific EKS cluster"
   echo "  logout                            Logout of the current AWS SSO session"
+  echo "  update                            Update awx to the latest version from GitHub"
   echo "  -                                 Toggle back to previous AWS profile/cluster (like cd -)"
   echo "  help | -h                         Show this help message"
 }
@@ -535,6 +554,9 @@ awx() {
       ;;
     logout)
       awx_logout
+      ;;
+    update)
+      awx_update
       ;;
     help | -h | --help)
       show_help

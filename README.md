@@ -28,6 +28,7 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 - **`awx profiles`** — Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status, without triggering SSO login
 - **EKS cluster caching** — cluster lists are cached per profile (default TTL: 8 hours) to reduce AWS API calls
 - ASCII art banner in help output (suppress with `AWX_NO_ASCII=true`)
+- **`awx update`** — Self-update to the latest version from GitHub with a single command
 
 ## Usage
 `awx` is a versatile script for managing AWS profiles and EKS kubeconfig contexts. Below are the primary commands and their purposes:
@@ -50,6 +51,7 @@ awx eks update                               # Update kubeconfig for a specific 
 awx help or -h                               # Show detailed usage instructions
 awx logout                                   # Logout of the current AWS SSO session
 awx profiles                                 # List all configured AWS profiles with ACTIVE/EXPIRED session status
+awx update                                   # Update awx to the latest version from GitHub
 ```
 
 ### Toggle to previous environment
@@ -77,15 +79,60 @@ $ awx
 
 ## Installation
 
-### 1. Install Dependencies
+### Quick Install (recommended)
+
+Install `awx` with a single command:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/cschindlbeck/awx/main/install.sh | bash
+```
+
+The script will:
+- Download `awx` to `~/.local/bin/awx`
+- Add a `source` line to your shell config (`~/.zshrc` or `~/.bashrc`)
+- Auto-install Zsh completions if Oh My Zsh is detected
+
+Then reload your shell and verify:
+
+```bash
+source ~/.zshrc   # or ~/.bashrc
+awx help
+```
+
+To update `awx` at any time after installation:
+
+```bash
+awx update
+```
+
+**Environment overrides** (all optional):
+
+| Variable             | Default             | Purpose                                              |
+|----------------------|---------------------|------------------------------------------------------|
+| `INSTALL_DIR`        | `~/.local/bin`      | Directory to install the `awx` script                |
+| `SHELL_RC`           | auto-detected       | Shell config file to add the `source` line to        |
+| `COMPLETIONS_DIR`    | auto-detected       | Directory for Zsh completion file                    |
+| `BRANCH`             | `main`              | GitHub branch to fetch from                          |
+| `NO_MODIFY_SHELL_RC` | `false`             | Set to `true` to skip shell config modification      |
+
+Example: install to a custom directory without modifying the shell config:
+
+```bash
+INSTALL_DIR=~/bin NO_MODIFY_SHELL_RC=true \
+  curl -sSL https://raw.githubusercontent.com/cschindlbeck/awx/main/install.sh | bash
+```
+
+### Manual Install
+
+#### 1. Install Dependencies
 - [AWS CLI](https://aws.amazon.com/cli/)
 - [fzf](https://github.com/junegunn/fzf)
 - [jq](https://jqlang.org/)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) _(optional but recommended — enables fast context switching without a full `aws eks update-kubeconfig` call)_
 
-### 2. Clone and Set Up
+#### 2. Clone and Set Up
 ```sh
-git clone https://github.com/chris.schindlbeck/awx.git
+git clone https://github.com/cschindlbeck/awx.git
 cd awx
 chmod +x awx
 
@@ -102,7 +149,7 @@ ln -s $(pwd)/awx ~/.oh-my-zsh/custom/awx.zsh
 source $(pwd)/awx
 ```
 
-### 3. Shell Completion (Zsh)
+#### 3. Shell Completion (Zsh)
 
 Tab-completes commands, subcommands, and AWS profile names.
 

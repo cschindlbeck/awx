@@ -19,6 +19,7 @@ _awx() {
     'profiles:List all configured profiles with session status'
     'eks:Manage EKS clusters'
     'logout:Logout of current AWS SSO session'
+    'update:Update awx to the latest version from GitHub'
     'help:Show help message'
   )
 
