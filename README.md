@@ -18,17 +18,10 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 
 - Fuzzy, interactive AWS profile selection via [`fzf`](https://github.com/junegunn/fzf)
 - Non-interactive mode: `awx use --profile X --cluster Y` for scripts and automation
-- Profile shortcut: `awx profile-name` as an alias for `awx use --profile profile-name`
-- **`awx -`** — Toggle back to the previous AWS profile and EKS cluster (like `cd -` / `git checkout -`)
+- **`awx -`** — Toggle back to the previous AWS profile and EKS cluster (like `cd -`)
 - Zsh tab completion for commands, subcommands, and AWS profile names
-- SSO login automation; minimal credential hassle
-- Automatically updates current [`kubeconfig`](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) and **skips redundant updates** when the target context already exists (requires `kubectl`)
-- Shows your current AWS identity as confirmation
-- Friendly and clear error output with robust logging
-- **`awx profiles`** — Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status, without triggering SSO login
-- **EKS cluster caching** — cluster lists are cached per profile (default TTL: 8 hours) to reduce AWS API calls
-- ASCII art banner in help output (suppress with `AWX_NO_ASCII=true`)
-- **`awx update`** — Self-update to the latest version from GitHub with a single command
+- EKS kubeconfig management with caching — skips redundant updates when the target context already exists
+- **`awx profiles`** — Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status
 
 ## Usage
 `awx` is a versatile script for managing AWS profiles and EKS kubeconfig contexts. Below are the primary commands and their purposes:
@@ -53,16 +46,6 @@ awx logout                                   # Logout of the current AWS SSO ses
 awx profiles                                 # List all configured AWS profiles with ACTIVE/EXPIRED session status
 awx update                                   # Update awx to the latest version from GitHub
 ```
-
-### Toggle to previous environment
-
-Switch back to the last used profile/cluster:
-
-```bash
-awx -
-```
-
-Running `awx -` again toggles back to the original environment. State is persisted across shell sessions in `~/.local/state/awx/env`.
 
 ### Example Workflow
 ```sh
@@ -134,19 +117,15 @@ INSTALL_DIR=~/bin NO_MODIFY_SHELL_RC=true \
 ```sh
 git clone https://github.com/cschindlbeck/awx.git
 cd awx
-chmod +x awx
 
-# Option 1: Source awx script
-# Add one of the following lines to your ~/.zshrc file:
-# Using full path: source /path/to/awx
-# or using relative path (if in repo): source $(pwd)/awx
+# Option 1: Install via make (symlinks awx to ~/.local/bin)
+make install
 
-# Option 2: Use with oh-my-zsh (or similar setup)
+# Option 2: Source in ~/.zshrc
+# Add to your ~/.zshrc: source /path/to/awx
+
+# Option 3: Use with oh-my-zsh
 ln -s $(pwd)/awx ~/.oh-my-zsh/custom/awx.zsh
-
-# Option 3: Source awx via .zshrc
-# Add the following line to your ~/.zshrc file:
-source $(pwd)/awx
 ```
 
 #### 3. Shell Completion (Zsh)
