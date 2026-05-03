@@ -40,6 +40,12 @@ repos:
         args: ["--write-changes"]
         exclude: CHANGELOG\.rst|\.(svg|pyc|drawio|dcf|eds)$
 
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        files: ^awx$|\.sh$
+
   - repo: https://github.com/scop/pre-commit-shfmt
     rev: v3.13.0-1
     hooks:
