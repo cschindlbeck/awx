@@ -17,7 +17,6 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 ## Features
 
 - Fuzzy, interactive AWS profile selection via [`fzf`](https://github.com/junegunn/fzf)
-- **Graceful fuzzy fallback**: partial or mistyped profile names trigger filtered `fzf` selection instead of failing
 - Non-interactive mode: `awx use --profile X --cluster Y` for scripts and automation
 - **`awx -`** — Toggle back to the previous AWS profile and EKS cluster (like `cd -`)
 - Zsh tab completion for commands, subcommands, and AWS profile names
