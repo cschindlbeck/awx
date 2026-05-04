@@ -533,7 +533,7 @@ EOF
   fi
   echo "Usage: awx [command]"
   echo "Commands:"
-  echo "  use [--profile P] [--cluster C]  Select AWS profile/cluster (interactive fallback)"
+  echo "  use [--profile P] [--cluster C]   Select AWS profile/cluster (interactive fallback)"
   echo "  <profile>                         Shortcut: set profile and update kubeconfig"
   echo "  whoami                            Display current AWS identity"
   echo "  profiles                          List all profiles with session status (ACTIVE/EXPIRED)"
