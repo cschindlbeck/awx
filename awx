@@ -1,17 +1,40 @@
 #!/usr/bin/env bash
 
 _awx_is_sourced=0
-(return 0 2>/dev/null) && _awx_is_sourced=1 || true
+if (return 0 2>/dev/null); then _awx_is_sourced=1; fi
 
 if [[ "$_awx_is_sourced" -eq 0 ]]; then
   set -euo pipefail
 fi
 
 DEFAULT_REGION="${DEFAULT_REGION:-${AWS_REGION:-eu-central-1}}"
-DEBUG="${DEBUG:-false}"                         # Enable debug mode for troubleshooting
+DEBUG="${DEBUG:-false}" # Enable debug mode for troubleshooting
+
+# ---------------------------------------------------------------------------
+# Colour support — only emit escape codes when stdout is a TTY with 8+ colours
+# ---------------------------------------------------------------------------
+if [[ -t 1 ]] && tput colors &>/dev/null && [[ "$(tput colors)" -ge 8 ]]; then
+  COL_INFO="$(tput setaf 2)"
+  COL_WARN="$(tput setaf 3)"
+  COL_ERR="$(tput setaf 1)"
+  COL_RESET="$(tput sgr0)"
+else
+  COL_INFO=""
+  COL_WARN=""
+  COL_ERR=""
+  COL_RESET=""
+fi
+
 AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"         # Retries for EKS API calls after SSO login
 AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}" # Seconds between EKS API retries
 AWX_STS_RETRIES="${AWX_STS_RETRIES:-10}"        # Retries waiting for STS after SSO login
+AWX_NO_ASCII="${AWX_NO_ASCII:-false}"           # Set to "true" to suppress ASCII art banner
+
+# ---------------------------------------------------------------------------
+# EKS cluster cache — avoids repeated AWS API calls
+# ---------------------------------------------------------------------------
+AWX_CACHE_DIR="${AWX_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/awx}"
+AWX_CACHE_TTL="${AWX_CACHE_TTL:-480}" # Cache TTL in minutes (default: 8h)
 
 # ---------------------------------------------------------------------------
 # State management — persists current/previous environment for `awx -`
@@ -49,15 +72,15 @@ _awx_state_read_previous() {
 }
 
 log() {
-  printf "[INFO] %s\n" "$*"
+  printf "%s[INFO]%s %s\n" "$COL_INFO" "$COL_RESET" "$*"
 }
 
 warn() {
-  printf "[WARN] %s\n" "$*" >&2
+  printf "%s[WARN]%s %s\n" "$COL_WARN" "$COL_RESET" "$*" >&2
 }
 
 error() {
-  printf "[ERROR] %s\n" "$*" >&2
+  printf "%s[ERROR]%s %s\n" "$COL_ERR" "$COL_RESET" "$*" >&2
 }
 
 die() {
@@ -119,7 +142,45 @@ aws_call() {
 }
 
 select_profile() {
-  aws configure list-profiles | fzf --prompt="Select AWS profile: "
+  local profiles
+  profiles="$(aws configure list-profiles)"
+
+  if [[ -z "$profiles" ]]; then
+    die "No AWS profiles configured. Run: aws configure sso"
+    return 1
+  fi
+
+  # No newline in the string means exactly one profile — auto-select it.
+  # Command substitution strips trailing newlines, so a single profile
+  # yields "name" (no newline), while multiple profiles yield "a\nb".
+  if [[ "$profiles" != *$'\n'* ]]; then
+    log "Auto-selecting the only available AWS profile: $profiles" >&2
+    printf "%s\n" "$profiles"
+    return 0
+  fi
+
+  printf "%s\n" "$profiles" | fzf --prompt="Select AWS profile: " \
+    --preview 'aws configure list --profile {}'
+}
+
+_eks_cache_path() {
+  local profile="$1"
+  local safe_profile
+  safe_profile="${profile//[^a-zA-Z0-9._-]/_}"
+  printf "%s/clusters_%s.json" "$AWX_CACHE_DIR" "$safe_profile"
+}
+
+_eks_cache_valid() {
+  local cache_file="$1"
+  [[ -f "$cache_file" ]] || return 1
+  [[ -n "$(find "$cache_file" -mmin "-${AWX_CACHE_TTL}" 2>/dev/null)" ]]
+}
+
+_eks_cache_write() {
+  local cache_file="$1"
+  local data="$2"
+  mkdir -p "$(dirname "$cache_file")"
+  printf "%s" "$data" >"$cache_file"
 }
 
 validate_and_resolve_profile() {
@@ -154,19 +215,33 @@ list_clusters() {
   local profile="$1"
   local out=""
   local i
+  local cache_file
+  local err_file
+  cache_file="$(_eks_cache_path "$profile")"
+
+  if _eks_cache_valid "$cache_file"; then
+    if [[ "$DEBUG" == "true" ]]; then
+      log "EKS cluster cache hit for profile: $profile"
+    fi
+    jq -r '.clusters[]?' <"$cache_file"
+    return 0
+  fi
+
+  err_file="$(mktemp)"
 
   # Ensure the SSO session is valid before attempting EKS API calls.
   # stdout is redirected to stderr so that log messages (e.g. "SSO session
   # expired") are shown to the user but do NOT flow into the stdout of this
   # function, which callers capture via $() to parse cluster names.
   aws_ensure_session "$profile" >&2 || {
+    rm -f "$err_file"
     die "Session unavailable for profile: $profile"
     return 1
   }
 
   for ((i = 1; i <= AWX_EKS_RETRIES; i++)); do
     if out="$(AWS_PAGER="" aws --profile "$profile" eks list-clusters \
-      --region "$DEFAULT_REGION" --output json 2>/tmp/awx_last_err)" &&
+      --region "$DEFAULT_REGION" --output json 2>"$err_file")" &&
       jq -e .clusters >/dev/null 2>&1 <<<"$out"; then
       break
     fi
@@ -178,7 +253,8 @@ list_clusters() {
   done
 
   if ! jq -e .clusters >/dev/null 2>&1 <<<"$out"; then
-    cat /tmp/awx_last_err >&2
+    cat "$err_file" >&2
+    rm -f "$err_file"
     die "Invalid API response: Failed to parse AWS EKS clusters. Check authentication and network connectivity."
     return 1
   fi
@@ -187,6 +263,8 @@ list_clusters() {
     log "AWS RAW RESPONSE: $out"
   fi
 
+  rm -f "$err_file"
+  _eks_cache_write "$cache_file" "$out"
   jq -r '.clusters[]?' <<<"$out"
 }
 
@@ -208,7 +286,16 @@ select_cluster_for_profile() {
     return 0
   fi
 
-  printf "%s\n" "$clusters" | fzf --prompt="Select EKS cluster: "
+  printf "%s\n" "$clusters" | fzf --prompt="Select EKS cluster: " \
+    --preview "aws eks describe-cluster --name {} --region '${DEFAULT_REGION}'"
+}
+
+_kubeconfig_context_exists() {
+  local context="$1"
+  # Returns 0 only when kubectl is available AND the named context exists.
+  # If kubectl is absent the check is skipped and update-kubeconfig always runs.
+  command -v kubectl >/dev/null 2>&1 &&
+    kubectl config get-contexts -o name 2>/dev/null | grep -Fxq "$context"
 }
 
 _eks_update_kubeconfig() {
@@ -216,11 +303,18 @@ _eks_update_kubeconfig() {
   local cluster="$2"
   local region="${3:-$DEFAULT_REGION}"
 
+  if _kubeconfig_context_exists "$profile"; then
+    log "Kubeconfig context already exists for cluster: $cluster, switching to context: $profile"
+    kubectl config use-context "$profile" || die "Failed to switch to kube context: $profile"
+    return 0
+  fi
+
   log "Updating kubeconfig for cluster: $cluster"
-  AWS_PAGER="" aws --profile "$profile" eks update-kubeconfig \
-    --region "$region" --name "$cluster" --alias "$profile" ||
+  if AWS_PAGER="" aws --profile "$profile" eks update-kubeconfig --region "$region" --name "$cluster" --alias "$profile" 2>/tmp/kubeconfig_debug.log; then
+    log "Kubeconfig updated successfully"
+  else
     die "Failed to update kubeconfig for cluster: $cluster"
-  log "Kubeconfig updated successfully"
+  fi
 }
 
 awx_use() {
@@ -285,6 +379,46 @@ awx_whoami() {
   aws_call "$profile" sts get-caller-identity
 }
 
+awx_profiles() {
+  # Only aws is needed here (no fzf/jq), so require_cmd aws is used directly
+  require_cmd aws
+  local filter_profile="${1:-}"
+  local profiles_out _awx_interrupted=0 _prev_int_trap
+
+  if [[ -n "$filter_profile" ]]; then
+    profiles_out="$filter_profile"
+  else
+    profiles_out="$(aws configure list-profiles)" || die "Failed to list AWS profiles"
+  fi
+
+  # Save existing INT trap and set our own so Ctrl+C breaks the loop cleanly.
+  # This is necessary when awx is sourced: the interactive shell's SIGINT only
+  # kills the foreground subprocess (aws sts), not the while loop itself.
+  _prev_int_trap="$(trap -p INT)"
+  trap '_awx_interrupted=1' INT
+
+  while IFS= read -r profile; do
+    if [[ "$_awx_interrupted" -eq 1 ]]; then break; fi
+    if AWS_PAGER="" aws sts get-caller-identity \
+      --profile "$profile" >/dev/null 2>&1; then
+      printf "%-40s ACTIVE\n" "$profile"
+    else
+      printf "%-40s EXPIRED\n" "$profile"
+    fi
+  done <<<"$profiles_out"
+
+  # Restore the previous INT trap to leave the shell in a clean state
+  if [[ -n "$_prev_int_trap" ]]; then
+    eval "$_prev_int_trap"
+  else
+    trap - INT
+  fi
+
+  if [[ "$_awx_interrupted" -eq 1 ]]; then
+    return 130
+  fi
+}
+
 awx_eks() {
   local subcommand="${1:-}"
   local profile="${AWS_PROFILE:-}"
@@ -304,7 +438,12 @@ awx_eks() {
 
   case "$subcommand" in
     list)
-      list_clusters "$profile"
+      clusters="$(list_clusters "$profile")"
+      if [[ -z "$clusters" ]]; then
+        warn "No EKS clusters found for profile: $profile"
+        return 0
+      fi
+      printf "%s\n" "$clusters"
       ;;
     update)
       cluster="$(select_cluster_for_profile "$profile")" || die "No EKS cluster selected"
@@ -317,6 +456,31 @@ awx_eks() {
   esac
 }
 
+awx_update() {
+  local self
+  local raw_url="${AWX_UPDATE_URL:-https://raw.githubusercontent.com/cschindlbeck/awx/main/awx}"
+
+  require_cmd curl
+
+  self="$(readlink -f "${BASH_SOURCE[0]}")"
+
+  [[ -z "$self" ]] && die "Could not determine awx executable path."
+
+  if [[ ! -f "$self" ]]; then
+    die "Resolved awx path is not a file: $self"
+  fi
+
+  if [[ ! -w "$self" ]]; then
+    die "Cannot write to ${self}. Check file permissions."
+  fi
+
+  log "Updating awx..."
+  curl -fsSL "$raw_url" -o "$self" || die "Failed to download update from ${raw_url}"
+  chmod +x "$self" || die "Failed to make ${self} executable."
+
+  log "...awx updated successfully."
+  log "Reload your shell to apply the update."
+}
 awx_logout() {
   local profile="${AWS_PROFILE:-}"
 
@@ -355,6 +519,15 @@ awx_prev() {
   prev_profile="${prev_line%%,*}"
   prev_cluster="${prev_line#*,}"
 
+  # Guard against state file corruption where a command name was written as a
+  # profile (e.g. 'awx profiles' treated as a profile shortcut before the
+  # command was registered in the dispatcher).
+  case "$prev_profile" in
+    use | whoami | profiles | eks | logout | help | -)
+      die "State file contains reserved name '$prev_profile' as a profile — likely caused by sourcing an old version of awx. Delete $AWX_STATE_FILE to reset."
+      ;;
+  esac
+
   # Swap state lines: previous becomes current, current becomes previous
   local current_line=""
   if [[ -f "$AWX_STATE_FILE" ]]; then
@@ -378,14 +551,26 @@ awx_prev() {
 }
 
 show_help() {
+  if [[ "$AWX_NO_ASCII" != "true" ]]; then
+    cat <<'EOF'
+    ___ _       ___  __
+   /   | |     / / |/ /
+  / /| | | /| / /|   /
+ / ___ | |/ |/ //   |
+/_/  |_|__/|__//_/|_|
+
+EOF
+  fi
   echo "Usage: awx [command]"
   echo "Commands:"
-  echo "  use [--profile P] [--cluster C]  Select AWS profile/cluster (interactive fallback)"
+  echo "  use [--profile P] [--cluster C]   Select AWS profile/cluster (interactive fallback)"
   echo "  <profile>                         Shortcut: set profile and update kubeconfig"
   echo "  whoami                            Display current AWS identity"
+  echo "  profiles                          List all profiles with session status (ACTIVE/EXPIRED)"
   echo "  eks list                          List EKS clusters for the active profile"
   echo "  eks update                        Update kubeconfig for a specific EKS cluster"
   echo "  logout                            Logout of the current AWS SSO session"
+  echo "  update                            Update awx to the latest version from GitHub"
   echo "  -                                 Toggle back to previous AWS profile/cluster (like cd -)"
   echo "  help | -h                         Show this help message"
 }
@@ -395,20 +580,27 @@ awx() {
 
   case "$command" in
     use)
-      [[ $# -gt 0 ]] && shift || true
+      if [[ $# -gt 0 ]]; then shift; fi
       awx_use "$@"
       ;;
     whoami)
       awx_whoami
       ;;
+    profiles)
+      if [[ $# -gt 0 ]]; then shift; fi
+      awx_profiles "$@"
+      ;;
     eks)
-      [[ $# -gt 0 ]] && shift || true
+      if [[ $# -gt 0 ]]; then shift; fi
       awx_eks "$@"
       ;;
     logout)
       awx_logout
       ;;
-    help | -h)
+    update)
+      awx_update
+      ;;
+    help | -h | --help)
       show_help
       ;;
     -)
