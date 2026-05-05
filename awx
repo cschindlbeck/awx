@@ -183,6 +183,34 @@ _eks_cache_write() {
   printf "%s" "$data" >"$cache_file"
 }
 
+validate_and_resolve_profile() {
+  local profile="$1"
+  local profiles
+  local matches
+  local selected
+
+  profiles="$(aws configure list-profiles)"
+
+  if grep -Fxq "$profile" <<<"$profiles"; then
+    printf "%s\n" "$profile"
+    return 0
+  fi
+
+  matches="$(grep -iF "$profile" <<<"$profiles" || true)"
+
+  if [[ -n "$matches" ]]; then
+    selected="$(printf "%s\n" "$matches" | fzf --prompt="Select AWS profile: ")"
+    if [[ -z "$selected" ]]; then
+      warn "No profile selected; keeping current AWS_PROFILE: ${AWS_PROFILE:-<unset>}"
+      return 1
+    fi
+    printf "%s\n" "$selected"
+  else
+    warn "No matching AWS profile found for '$profile'"
+    return 1
+  fi
+}
+
 list_clusters() {
   local profile="$1"
   local out=""
@@ -292,6 +320,7 @@ _eks_update_kubeconfig() {
 awx_use() {
   local profile=""
   local cluster=""
+  local fuzzy=0
 
   # Parse optional flags; fall back to interactive when absent
   while [[ $# -gt 0 ]]; do
@@ -299,6 +328,13 @@ awx_use() {
       --profile)
         [[ -n "${2:-}" ]] || die "--profile requires a value"
         profile="$2"
+        shift 2
+        ;;
+      --fuzzy-profile)
+        # Internal flag: profile shortcut (positional arg) — triggers fuzzy resolve
+        [[ -n "${2:-}" ]] || die "--fuzzy-profile requires a value"
+        profile="$2"
+        fuzzy=1
         shift 2
         ;;
       --cluster)
@@ -318,6 +354,8 @@ awx_use() {
       warn "No profile selected; keeping current AWS_PROFILE: ${AWS_PROFILE:-<unset>}"
       return 1
     fi
+  elif [[ "$fuzzy" -eq 1 ]]; then
+    profile="$(validate_and_resolve_profile "$profile")" || return 1
   fi
 
   export AWS_PROFILE="$profile"
@@ -581,9 +619,9 @@ awx() {
       awx_use "$@"
       ;;
     *)
-      # Treat an unrecognised argument as a profile shortcut.
-      # e.g. `awx my-profile` is equivalent to `awx use --profile my-profile`
-      awx_use --profile "$command"
+      # Treat an unrecognised argument as a profile shortcut with fuzzy resolve.
+      # e.g. `awx my-profile` triggers fuzzy/partial profile matching
+      awx_use --fuzzy-profile "$command"
       ;;
   esac
 }
