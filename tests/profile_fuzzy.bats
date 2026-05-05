@@ -61,9 +61,9 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# Test 2: Partial match — fzf opened with filtered results
+# Test 2: Partial match shortcut — fzf opened with filtered results
 # ---------------------------------------------------------------------------
-@test "partial profile match opens fzf with filtered results" {
+@test "partial profile shortcut opens fzf with filtered results" {
   cat >mock/bin/fzf <<'EOF'
 #!/usr/bin/env bash
 # Receive filtered list on stdin and return first match
@@ -71,7 +71,8 @@ echo "mock-alpha"
 EOF
   chmod +x mock/bin/fzf
 
-  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx use --profile mock-al
+  # Shortcut syntax triggers fuzzy resolve; --profile is always exact
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx mock-al
 
   [ "$status" -eq 0 ]
   [[ "${output}" =~ "Using profile: mock-alpha" ]]
@@ -89,7 +90,8 @@ exit 1
 EOF
   chmod +x mock/bin/fzf
 
-  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx use --profile zzz-nonexistent
+  # Shortcut syntax triggers fuzzy resolve
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx zzz-nonexistent
 
   [ "$status" -ne 0 ]
   [[ "${output}" =~ "No matching AWS profile found for 'zzz-nonexistent'" ]]
@@ -106,7 +108,8 @@ echo "mock-alpha"
 EOF
   chmod +x mock/bin/fzf
 
-  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx use --profile MOCK-AL
+  # Shortcut syntax triggers fuzzy resolve; --profile is always exact
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx MOCK-AL
 
   [ "$status" -eq 0 ]
   [[ "${output}" =~ "Using profile: mock-alpha" ]]
