@@ -12,7 +12,7 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 
 ## Overview
 
-`awx` is a minimal Bash CLI to streamline AWS SSO login, profile switching, and EKS kubeconfig management for multi-account AWS setups with EKS clusters.
+`awx` is a minimal Bash CLI to streamline AWS profile switching and EKS kubeconfig management for multi-account AWS setups. It supports both SSO-based and static credential profiles transparently.
 
 ## Features
 
@@ -20,6 +20,7 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 - Non-interactive mode: `awx use --profile X --cluster Y` for scripts and automation
 - **`awx -`** — Toggle back to the previous AWS profile and EKS cluster (like `cd -`)
 - Zsh tab completion for commands, subcommands, and AWS profile names
+- SSO login automation; minimal credential hassle with graceful fallback to static credentials when SSO fails
 - EKS kubeconfig management with caching — skips redundant updates when the target context already exists
 - **`awx profiles`** — Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status
 
@@ -218,7 +219,8 @@ Automated quality checks, formatting, and linting are enforced by [pre-commit](h
 - If required tools (`aws`, `fzf`, or `jq`) are missing, `awx` will tell you exactly what to install.
 - `kubectl` is an optional but recommended dependency. When present, `awx` skips `aws eks update-kubeconfig` if the target context (named after the profile) already exists in your kubeconfig, and instead calls `kubectl config use-context` directly — significantly reducing latency on repeated calls. Without `kubectl`, a full `aws eks update-kubeconfig` is always run.
 - `kubeconfig` is updated *per profile*; back up your old file if you need persistent custom setups.
-- Make sure your AWS SSO setup is complete before using `awx use` for the first time.
+- **Credential detection is automatic**: `awx` checks for `sso_start_url` to detect SSO profiles and `aws_access_key_id` for static credentials. No manual configuration required.
+- If a profile has both SSO and static credentials configured, SSO is attempted first. On SSO failure, `awx` falls back to static credentials automatically.
 - Defaults to region from `AWS_REGION`, falling back to `eu-central-1` if unset.
 - EKS cluster results are cached per profile under `$XDG_CACHE_HOME/awx/` (falls back to `~/.cache/awx/`). The default TTL is 8 hours (480 minutes) and can be overridden with `AWX_CACHE_TTL=<minutes>`.
 
