@@ -7,7 +7,7 @@
 ![pre-commit](https://github.com/cschindlbeck/awx/actions/workflows/pre-commit.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-_Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
+_Blazginly Fast AWS Profile & EKS Context Switcher_
 </div>
 
 ## Overview
@@ -16,13 +16,12 @@ _Fast AWS Profile & EKS Context Switching for DevOps and Cloud Engineers_
 
 ## Features
 
-- Fuzzy, interactive AWS profile selection via [`fzf`](https://github.com/junegunn/fzf)
-- Non-interactive mode: `awx use --profile X --cluster Y` for scripts and automation
-- **`awx -`** — Toggle back to the previous AWS profile and EKS cluster (like `cd -`)
+- Fuzzy, interactive AWS profile selection via [`fzf`](https://github.com/junegunn/fzf) but also non-interactive mode: `awx use --profile X --cluster Y` for scripts and automation
+- Toggle back to the previous AWS profile and EKS cluster with **`awx -`** (like `cd -`)
 - Zsh tab completion for commands, subcommands, and AWS profile names
-- SSO login automation; minimal credential hassle with graceful fallback to static credentials when SSO fails
-- EKS kubeconfig management with caching — skips redundant updates when the target context already exists
-- **`awx profiles`** — Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status
+- SSO login automation with graceful fallback to static credentials when SSO fails
+- EKS kubeconfig management with caching that skips redundant updates when the target context already exists
+- Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status via **`awx profiles`**
 
 ## Usage
 `awx` is a versatile script for managing AWS profiles and EKS kubeconfig contexts. Below are the primary commands and their purposes:
