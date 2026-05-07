@@ -130,3 +130,24 @@ EOF
   [ "$status" -eq 0 ]
   [[ "${output}" =~ "Using profile: devProfile" ]]
 }
+
+# ---------------------------------------------------------------------------
+# Test 6: Single fuzzy match — auto-select without opening fzf
+# ---------------------------------------------------------------------------
+@test "single fuzzy match auto-selects without opening fzf" {
+  # fzf must exist for check_deps but must NOT be invoked when there is
+  # exactly one matching profile — the script should auto-select it.
+  cat >mock/bin/fzf <<'EOF'
+#!/usr/bin/env bash
+echo "fzf-invoked"
+exit 1
+EOF
+  chmod +x mock/bin/fzf
+
+  # "alpha" uniquely matches "mock-alpha" (not mock-beta or devProfile)
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx alpha
+
+  [ "$status" -eq 0 ]
+  [[ "${output}" =~ "Using profile: mock-alpha" ]]
+  ! [[ "${output}" =~ "fzf-invoked" ]]
+}

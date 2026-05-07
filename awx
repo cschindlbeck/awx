@@ -234,6 +234,12 @@ validate_and_resolve_profile() {
   matches="$(grep -iF "$profile" <<<"$profiles" || true)"
 
   if [[ -n "$matches" ]]; then
+    # Auto-select when exactly one profile matches — consistent with select_profile()
+    if [[ "$matches" != *$'\n'* ]]; then
+      log "Auto-selecting the only matching AWS profile: $matches" >&2
+      printf "%s\n" "$matches"
+      return 0
+    fi
     selected="$(printf "%s\n" "$matches" | fzf --prompt="Select AWS profile: ")"
     if [[ -z "$selected" ]]; then
       warn "No profile selected; keeping current AWS_PROFILE: ${AWS_PROFILE:-<unset>}"
