@@ -346,7 +346,7 @@ _eks_update_kubeconfig() {
 
   if _kubeconfig_context_exists "$profile"; then
     log "Kubeconfig context already exists for cluster: $cluster, switching to context: $profile"
-    kubectl config use-context "$profile" > /dev/null || die "Failed to switch to kube context: $profile"
+    kubectl config use-context "$profile" >/dev/null || die "Failed to switch to kube context: $profile"
     return 0
   fi
 
