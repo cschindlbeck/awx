@@ -351,7 +351,7 @@ _eks_update_kubeconfig() {
   fi
 
   log "Updating kubeconfig for cluster: $cluster"
-  if AWS_PAGER="" aws --profile "$profile" eks update-kubeconfig --region "$region" --name "$cluster" --alias "$profile" 2>/tmp/kubeconfig_debug.log; then
+  if AWS_PAGER="" aws --profile "$profile" eks update-kubeconfig --region "$region" --name "$cluster" --alias "$profile" >/dev/null 2>/tmp/kubeconfig_debug.log; then
     log "Kubeconfig updated successfully"
   else
     die "Failed to update kubeconfig for cluster: $cluster"
