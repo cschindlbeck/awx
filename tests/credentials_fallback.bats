@@ -1,9 +1,22 @@
 #!/usr/bin/env bats
 
-@test "SSO profile: valid session authenticated without re-login" {
+setup() {
   mkdir -p mock/bin
   export PATH="$(pwd)/mock/bin:$PATH"
+  export AWX_CACHE_DIR
+  AWX_CACHE_DIR="$(mktemp -d)"
+  export AWX_STATE_FILE
+  AWX_STATE_FILE="$(mktemp)"
+  rm -f "$AWX_STATE_FILE"
+}
 
+teardown() {
+  rm -rf mock
+  rm -rf "${AWX_CACHE_DIR:-}"
+  rm -f "${AWX_STATE_FILE:-}"
+}
+
+@test "SSO profile: valid session authenticated without re-login" {
   cat >mock/bin/aws <<'EOM'
 #!/bin/bash
 if [[ "$*" == *"sso_start_url"* ]]; then
@@ -31,15 +44,9 @@ EOM
 
   [ "$status" -eq 0 ]
   [[ "${output}" =~ "cluster-sso" ]]
-
-  # Cleanup
-  rm -rf mock
 }
 
 @test "static credential profile: authenticated without SSO login" {
-  mkdir -p mock/bin
-  export PATH="$(pwd)/mock/bin:$PATH"
-
   cat >mock/bin/aws <<'EOM'
 #!/bin/bash
 if [[ "$*" == *"sso_start_url"* ]]; then
@@ -73,15 +80,9 @@ EOM
   [[ "${output}" =~ "Using static credentials" ]]
   # SSO login must NOT be triggered for a static-only profile
   [[ ! "${output}" =~ "SSO login triggered" ]]
-
-  # Cleanup
-  rm -rf mock
 }
 
 @test "SSO failure falls back to static credentials" {
-  mkdir -p mock/bin
-  export PATH="$(pwd)/mock/bin:$PATH"
-
   cat >mock/bin/aws <<'EOM'
 #!/bin/bash
 if [[ "$*" == *"sso_start_url"* ]]; then
@@ -113,15 +114,9 @@ EOM
   [ "$status" -eq 0 ]
   [[ "${output}" =~ "cluster-fallback" ]]
   [[ "${output}" =~ "SSO failed, falling back to static credentials" ]]
-
-  # Cleanup
-  rm -rf mock
 }
 
 @test "profile with no SSO and no static credentials fails with clear error" {
-  mkdir -p mock/bin
-  export PATH="$(pwd)/mock/bin:$PATH"
-
   cat >mock/bin/aws <<'EOM'
 #!/bin/bash
 if [[ "$*" == *"sso_start_url"* ]]; then
@@ -147,7 +142,4 @@ EOM
 
   [ "$status" -ne 0 ]
   [[ "${output}" =~ "No valid authentication method found for profile: unconfigured-profile" ]]
-
-  # Cleanup
-  rm -rf mock
 }
