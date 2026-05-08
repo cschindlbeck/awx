@@ -259,18 +259,11 @@ list_clusters() {
   local cache_file
   local err_file
   cache_file="$(_eks_cache_path "$profile")"
-
-  if _eks_cache_valid "$cache_file"; then
-    if [[ "$DEBUG" == "true" ]]; then
-      log "EKS cluster cache hit for profile: $profile"
-    fi
-    jq -r '.clusters[]?' <"$cache_file"
-    return 0
-  fi
-
   err_file="$(mktemp)"
 
-  # Ensure the SSO session is valid before attempting EKS API calls.
+  # Always validate SSO session before serving cached or live cluster data.
+  # This ensures re-authentication is triggered on every profile switch,
+  # not just when the EKS cluster cache is stale.
   # stdout is redirected to stderr so that log messages (e.g. "SSO session
   # expired") are shown to the user but do NOT flow into the stdout of this
   # function, which callers capture via $() to parse cluster names.
@@ -279,6 +272,15 @@ list_clusters() {
     die "Session unavailable for profile: $profile"
     return 1
   }
+
+  if _eks_cache_valid "$cache_file"; then
+    if [[ "$DEBUG" == "true" ]]; then
+      log "EKS cluster cache hit for profile: $profile"
+    fi
+    rm -f "$err_file"
+    jq -r '.clusters[]?' <"$cache_file"
+    return 0
+  fi
 
   for ((i = 1; i <= AWX_EKS_RETRIES; i++)); do
     if out="$(AWS_PAGER="" aws --profile "$profile" eks list-clusters \

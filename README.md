@@ -19,7 +19,7 @@ _Blazginly Fast AWS Profile & EKS Context Switcher_
 - Fuzzy, interactive AWS profile selection via [`fzf`](https://github.com/junegunn/fzf) but also non-interactive mode: `awx use --profile X --cluster Y` for scripts and automation
 - Toggle back to the previous AWS profile and EKS cluster with **`awx -`** (like `cd -`)
 - Zsh tab completion for commands, subcommands, and AWS profile names
-- SSO login automation with graceful fallback to static credentials when SSO fails
+- Automatic SSO session re-authentication on every profile switch: if your session expires mid-day, `awx` detects it and re-authenticates transparently, with graceful fallback to static credentials when SSO fails
 - EKS kubeconfig management with caching that skips redundant updates when the target context already exists
 - Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status via **`awx profiles`**
 
