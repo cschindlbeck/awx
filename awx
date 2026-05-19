@@ -406,6 +406,8 @@ awx_use() {
 
   log "Using profile: $AWS_PROFILE (region: $AWS_REGION)"
 
+  aws_ensure_session "$profile"
+
   if [[ -z "$cluster" ]]; then
     if ! cluster="$(select_cluster_for_profile "$profile")"; then
       _awx_state_write "$profile" ""
@@ -593,6 +595,8 @@ awx_prev() {
   export AWS_PROFILE="$prev_profile"
   export AWS_REGION="$DEFAULT_REGION"
   log "Switched to profile: $AWS_PROFILE (region: $AWS_REGION)"
+
+  aws_ensure_session "$prev_profile"
 
   if [[ -n "$prev_cluster" ]]; then
     _eks_update_kubeconfig "$prev_profile" "$prev_cluster" "$DEFAULT_REGION"
