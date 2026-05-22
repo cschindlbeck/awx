@@ -1,12 +1,13 @@
-.PHONY: help test lint check install dev clean
+.PHONY: help test lint check install uninstall dev clean
 
 INSTALL_DIR ?= $(HOME)/.local/bin
 SCRIPT      := awx
+SCRIPT_PATH := $(abspath $(SCRIPT))
 
 help: ## List all available targets with descriptions
 	@echo "Available targets:"
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) \
-		| awk 'BEGIN {FS = ":.*## "}; {printf "  make %-10s - %s\n", $$1, $$2}'
+		| awk 'BEGIN {FS = ":.*## "}; {printf "  make %-12s %s\n", $$1, $$2}'
 
 test: ## Run all bats tests
 	bats tests/
@@ -16,11 +17,32 @@ lint: ## Run pre-commit hooks on all files
 
 check: test lint ## Run tests and lint
 
-install: ## Install (symlink) the awx script to $(INSTALL_DIR)
-	chmod +x $(SCRIPT)
-	mkdir -p $(INSTALL_DIR)
-	ln -sf "$(PWD)/$(SCRIPT)" "$(INSTALL_DIR)/$(SCRIPT)"
-	@echo "Installed: $(INSTALL_DIR)/$(SCRIPT) -> $(PWD)/$(SCRIPT)"
+install: ## Install awx into $(INSTALL_DIR)
+	@test -f "$(SCRIPT)" || { echo "ERROR: $(SCRIPT) not found"; exit 1; }
+	chmod +x "$(SCRIPT)"
+	mkdir -p "$(INSTALL_DIR)"
+	ln -sf "$(SCRIPT_PATH)" "$(INSTALL_DIR)/$(SCRIPT)"
+
+	@echo ""
+	@echo "Installed:"
+	@echo "  $(INSTALL_DIR)/$(SCRIPT) -> $(SCRIPT_PATH)"
+
+	@if echo "$$PATH" | tr ':' '\n' | grep -Fxq "$(INSTALL_DIR)"; then \
+		echo ""; \
+		echo "PATH check: OK"; \
+		echo "You can now run:"; \
+		echo "  $(SCRIPT)"; \
+	else \
+		echo ""; \
+		echo "WARNING: $(INSTALL_DIR) is not in your PATH"; \
+		echo ""; \
+		echo "Add this to your shell config (~/.zshrc or ~/.bashrc):"; \
+		echo '  export PATH="$(INSTALL_DIR):$$PATH"'; \
+	fi
+
+uninstall: ## Remove installed symlink
+	rm -f "$(INSTALL_DIR)/$(SCRIPT)"
+	@echo "Removed: $(INSTALL_DIR)/$(SCRIPT)"
 
 dev: ## Set up local development environment
 	@echo "Checking development dependencies..."
