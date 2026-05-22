@@ -30,14 +30,36 @@ install: ## Install awx into $(INSTALL_DIR)
 	@if echo "$$PATH" | tr ':' '\n' | grep -Fxq "$(INSTALL_DIR)"; then \
 		echo ""; \
 		echo "PATH check: OK"; \
-		echo "You can now run:"; \
-		echo "  $(SCRIPT)"; \
 	else \
 		echo ""; \
 		echo "WARNING: $(INSTALL_DIR) is not in your PATH"; \
 		echo ""; \
 		echo "Add this to your shell config (~/.zshrc or ~/.bashrc):"; \
 		echo '  export PATH="$(INSTALL_DIR):$$PATH"'; \
+	fi
+
+	@shell_config=""; \
+	if [ -f "$(HOME)/.zshrc" ]; then \
+		shell_config="$(HOME)/.zshrc"; \
+	elif [ -f "$(HOME)/.bashrc" ]; then \
+		shell_config="$(HOME)/.bashrc"; \
+	fi; \
+	if [ -n "$$shell_config" ]; then \
+		if grep -qF 'source "$(INSTALL_DIR)/$(SCRIPT)"' "$$shell_config" || grep -qF "source $(INSTALL_DIR)/$(SCRIPT)" "$$shell_config"; then \
+			echo ""; \
+			echo "Shell integration: OK (source line detected in $$shell_config)"; \
+		else \
+			echo ""; \
+			echo "REQUIRED: awx must be sourced to set AWS_PROFILE in your shell."; \
+			echo ""; \
+			echo "Add this line to $$shell_config:"; \
+			echo ""; \
+			echo '  source "$(INSTALL_DIR)/$(SCRIPT)"'; \
+			echo ""; \
+			echo "Then reload your shell:"; \
+			echo ""; \
+			echo "  source $$shell_config"; \
+		fi; \
 	fi
 
 uninstall: ## Remove installed symlink

@@ -118,15 +118,21 @@ INSTALL_DIR=~/bin NO_MODIFY_SHELL_RC=true \
 git clone https://github.com/cschindlbeck/awx.git
 cd awx
 
-# Option 1: Install via make (symlinks awx to ~/.local/bin)
+# Step 1: Install via make (symlinks awx to ~/.local/bin)
 make install
 
-# Option 2: Source in ~/.zshrc
-# Add to your ~/.zshrc: source /path/to/awx
+# Step 2: Add to your shell config (~/.zshrc or ~/.bashrc)
+# This is REQUIRED so that AWS_PROFILE persists in your shell session
+source "$HOME/.local/bin/awx"
 
-# Option 3: Use with oh-my-zsh
-ln -s $(pwd)/awx ~/.oh-my-zsh/custom/awx.zsh
+# Then reload your shell
+source ~/.zshrc   # or ~/.bashrc
+
+# (Optional) Install with oh-my-zsh
+# ln -s $(pwd)/awx ~/.oh-my-zsh/custom/awx.zsh
 ```
+
+**Why sourcing is required:** `awx` needs to run in your shell's current process to modify environment variables like `AWS_PROFILE`. If executed as a subprocess (without sourcing), any environment changes are lost when the process exits. Sourcing the script defines the `awx()` function in your current shell, making your AWS profile switches persist.
 
 #### 3. Shell Completion (Zsh)
 
