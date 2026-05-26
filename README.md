@@ -23,6 +23,9 @@ _Blazginly Fast AWS Profile & EKS Context Switcher_
 - Automatic SSO session re-authentication on every profile switch: if your session expires mid-day, `awx` detects it and re-authenticates transparently, with graceful fallback to static credentials when SSO fails
 - EKS kubeconfig management with caching that skips redundant updates when the target context already exists
 - Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status and remaining SSO session lifetime via **`awx profiles`**
+- Display the active profile, region, and EKS cluster with **`awx current`**
+- Reset environment and clear cached data with **`awx clear`**
+- Force refresh of SSO session with **`awx refresh`**
 
 ## Usage
 `awx` is a versatile script for managing AWS profiles and EKS kubeconfig contexts. Below are the primary commands and their purposes:
@@ -40,6 +43,9 @@ awx --profile my-profile                     # Top-level flag (equivalent to abo
 
 # Other commands
 awx whoami                                   # Show current AWS identity
+awx current                                  # Show current profile, region, and cluster
+awx clear                                    # Unset AWS env vars and clear cache/state
+awx refresh                                  # Force refresh of SSO session
 awx eks list                                 # List available EKS clusters for active profile
 awx eks update                               # Update kubeconfig for a specific cluster
 awx ctx                                      # Switch kubeconfig context via fzf
