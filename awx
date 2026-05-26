@@ -493,6 +493,20 @@ _sso_remaining() {
   done
 }
 
+awx_ctx() {
+  require_cmd kubectl
+  local ctx
+  local contexts
+  contexts="$(kubectl config get-contexts -o name 2>/dev/null || true)"
+  if [[ -z "$contexts" ]]; then
+    warn "No kubeconfig contexts available"
+    return 1
+  fi
+  ctx="$(printf "%s\n" "$contexts" | fzf --prompt="Select context: ")" || return 1
+  kubectl config use-context "$ctx" >/dev/null
+  log "Switched to context: $ctx"
+}
+
 awx_profiles() {
   require_cmd aws
   require_cmd jq
@@ -642,7 +656,7 @@ awx_prev() {
   # profile (e.g. 'awx profiles' treated as a profile shortcut before the
   # command was registered in the dispatcher).
   case "$prev_profile" in
-    use | whoami | profiles | eks | logout | help | -)
+    use | whoami | profiles | eks | logout | ctx | help | -)
       die "State file contains reserved name '$prev_profile' as a profile — likely caused by sourcing an old version of awx. Delete $AWX_STATE_FILE to reset."
       ;;
   esac
@@ -692,6 +706,7 @@ EOF
   echo "  eks update                        Update kubeconfig for a specific EKS cluster"
   echo "  logout                            Logout of the current AWS SSO session"
   echo "  update                            Update awx to the latest version from GitHub"
+  echo "  ctx                               Switch kubeconfig context via fzf"
   echo "  -                                 Toggle back to previous AWS profile/cluster (like cd -)"
   echo "  help | -h                         Show this help message"
 }
@@ -723,6 +738,9 @@ awx() {
       ;;
     help | -h | --help)
       show_help
+      ;;
+    ctx)
+      awx_ctx
       ;;
     -)
       awx_prev
