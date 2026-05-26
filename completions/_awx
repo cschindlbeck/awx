@@ -17,6 +17,7 @@ _awx() {
     'use:Select AWS profile and update kubeconfig'
     'whoami:Display current AWS identity'
     'profiles:List all configured profiles with session status'
+    'ctx:Switch kubeconfig context via fzf'
     'eks:Manage EKS clusters'
     'logout:Logout of current AWS SSO session'
     'update:Update awx to the latest version from GitHub'
