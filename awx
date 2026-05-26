@@ -40,7 +40,7 @@ AWX_CACHE_TTL="${AWX_CACHE_TTL:-480}" # Cache TTL in minutes (default: 8h)
 # ---------------------------------------------------------------------------
 # State management — persists current/previous environment for `awx -`
 # ---------------------------------------------------------------------------
-AWX_STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/awx"
+AWX_STATE_DIR="${AWX_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/awx}"
 AWX_STATE_FILE="${AWX_STATE_FILE:-$AWX_STATE_DIR/env}"
 
 _awx_state_ensure_dir() {
@@ -631,6 +631,79 @@ awx_logout() {
   fi
 }
 
+awx_current() {
+  local profile="${AWS_PROFILE:-}"
+  local region="${AWS_REGION:-$DEFAULT_REGION}"
+  local cluster=""
+
+  if command -v kubectl >/dev/null 2>&1; then
+    cluster="$(kubectl config current-context 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$profile" ]]; then
+    printf "Profile: <unset>  Region: %s" "$region"
+  else
+    printf "Profile: %s  Region: %s" "$profile" "$region"
+  fi
+
+  if [[ -n "$cluster" ]]; then
+    printf "  Cluster: %s" "$cluster"
+  fi
+  printf "\n"
+}
+
+awx_clear() {
+  unset AWS_PROFILE
+  unset AWS_REGION
+  unset AWS_DEFAULT_REGION
+
+  if [[ -d "$AWX_CACHE_DIR" ]]; then
+    rm -rf "$AWX_CACHE_DIR"
+  fi
+  if [[ -d "$AWX_STATE_DIR" ]]; then
+    rm -rf "$AWX_STATE_DIR"
+  fi
+
+  log "Cleared AWS environment variables, EKS cache, and state"
+}
+
+awx_refresh() {
+  local profile="${AWS_PROFILE:-}"
+
+  if [[ -z "$profile" ]]; then
+    error "AWS_PROFILE not set. Please run: awx use"
+    return 1
+  fi
+
+  if [[ -d "$AWX_SSO_CACHE_DIR" ]]; then
+    rm -rf "$AWX_SSO_CACHE_DIR"
+    log "Cleared SSO token cache"
+  fi
+
+  log "Refreshing SSO session for profile: $profile"
+  if aws sso login --profile "$profile"; then
+    local sts_ready=0
+    for ((i = 0; i < AWX_STS_RETRIES; i++)); do
+      if aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
+        sts_ready=1
+        break
+      fi
+      log "Waiting for SSO session to stabilize..."
+      sleep 1
+    done
+
+    if [[ "$sts_ready" -eq 1 ]]; then
+      log "SSO session refreshed for profile: $profile"
+      return 0
+    fi
+    die "SSO session not ready after refresh. Try again."
+    return 1
+  fi
+
+  die "AWS SSO login failed for profile: $profile"
+  return 1
+}
+
 awx_prev() {
   local prev_line
   prev_line="$(_awx_state_read_previous)"
@@ -656,7 +729,7 @@ awx_prev() {
   # profile (e.g. 'awx profiles' treated as a profile shortcut before the
   # command was registered in the dispatcher).
   case "$prev_profile" in
-    use | whoami | profiles | eks | logout | ctx | help | -)
+    use | whoami | profiles | eks | logout | ctx | help | - | current | clear | refresh)
       die "State file contains reserved name '$prev_profile' as a profile — likely caused by sourcing an old version of awx. Delete $AWX_STATE_FILE to reset."
       ;;
   esac
@@ -705,6 +778,9 @@ EOF
   echo "  eks list                          List EKS clusters for the active profile"
   echo "  eks update                        Update kubeconfig for a specific EKS cluster"
   echo "  logout                            Logout of the current AWS SSO session"
+  echo "  current                           Show current AWS profile, region, and cluster"
+  echo "  clear                             Unset AWS environment variables and clear cache"
+  echo "  refresh                           Force refresh of SSO session"
   echo "  update                            Update awx to the latest version from GitHub"
   echo "  ctx                               Switch kubeconfig context via fzf"
   echo "  -                                 Toggle back to previous AWS profile/cluster (like cd -)"
@@ -735,6 +811,15 @@ awx() {
       ;;
     update)
       awx_update
+      ;;
+    current)
+      awx_current
+      ;;
+    clear)
+      awx_clear
+      ;;
+    refresh)
+      awx_refresh
       ;;
     help | -h | --help)
       show_help
