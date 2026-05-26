@@ -85,7 +85,7 @@ error() {
 
 die() {
   error "$*"
-  return 1
+  [[ "$_awx_is_sourced" -eq 1 ]] && return 1 || exit 1
 }
 
 require_cmd() {
@@ -141,9 +141,9 @@ aws_ensure_session() {
         return 0
       fi
 
-      # die() only returns 1 — it does not exit the function. An explicit
-      # return 1 is required here because set -e is suspended when this
-      # function is invoked in a || context (e.g. from list_clusters).
+      # die() exits when standalone, returns 1 when sourced. The explicit
+      # return 1 after die() is a no-op for standalone (die already exited)
+      # but ensures the calling function returns when sourced.
       die "SSO session not ready after login. Please run 'awx use' again."
       return 1
     fi
@@ -154,8 +154,9 @@ aws_ensure_session() {
       return 0
     fi
 
-    # die() only returns 1 — explicit return 1 guards against fall-through
-    # when set -e is suspended in a || context.
+    # die() exits when standalone, returns 1 when sourced. The explicit
+    # return 1 after die() is a no-op for standalone (die already exited)
+    # but ensures the calling function returns when sourced.
     die "AWS SSO login failed for profile: $profile"
     return 1
   elif [[ -n "$static_key" ]]; then
