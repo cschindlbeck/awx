@@ -21,7 +21,7 @@ _Blazginly Fast AWS Profile & EKS Context Switcher_
 - Zsh tab completion for commands, subcommands, and AWS profile names
 - Automatic SSO session re-authentication on every profile switch: if your session expires mid-day, `awx` detects it and re-authenticates transparently, with graceful fallback to static credentials when SSO fails
 - EKS kubeconfig management with caching that skips redundant updates when the target context already exists
-- Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status via **`awx profiles`**
+- Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status and remaining SSO session lifetime via **`awx profiles`**
 
 ## Usage
 `awx` is a versatile script for managing AWS profiles and EKS kubeconfig contexts. Below are the primary commands and their purposes:
@@ -43,7 +43,7 @@ awx eks list                                 # List available EKS clusters for a
 awx eks update                               # Update kubeconfig for a specific cluster
 awx help or -h                               # Show detailed usage instructions
 awx logout                                   # Logout of the current AWS SSO session
-awx profiles                                 # List all configured AWS profiles with ACTIVE/EXPIRED session status
+awx profiles                                 # List all configured AWS profiles with ACTIVE/EXPIRED status and remaining session time
 awx update                                   # Update awx to the latest version from GitHub
 ```
 

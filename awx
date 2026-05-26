@@ -25,10 +25,11 @@ else
   COL_RESET=""
 fi
 
-AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"         # Retries for EKS API calls after SSO login
-AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}" # Seconds between EKS API retries
-AWX_STS_RETRIES="${AWX_STS_RETRIES:-10}"        # Retries waiting for STS after SSO login
-AWX_NO_ASCII="${AWX_NO_ASCII:-false}"           # Set to "true" to suppress ASCII art banner
+AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"                        # Retries for EKS API calls after SSO login
+AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}"                # Seconds between EKS API retries
+AWX_STS_RETRIES="${AWX_STS_RETRIES:-10}"                       # Retries waiting for STS after SSO login
+AWX_NO_ASCII="${AWX_NO_ASCII:-false}"                          # Set to "true" to suppress ASCII art banner
+AWX_SSO_CACHE_DIR="${AWX_SSO_CACHE_DIR:-$HOME/.aws/sso/cache}" # SSO token cache directory
 
 # ---------------------------------------------------------------------------
 # EKS cluster cache — avoids repeated AWS API calls
@@ -432,11 +433,70 @@ awx_whoami() {
   aws_call "$profile" sts get-caller-identity
 }
 
+# ---------------------------------------------------------------------------
+# Helpers for `awx profiles` session duration display
+# ---------------------------------------------------------------------------
+
+format_duration() {
+  local seconds=$1
+  local hours=$((seconds / 3600))
+  local minutes=$(((seconds % 3600) / 60))
+
+  if [[ $hours -gt 0 ]] && [[ $minutes -gt 0 ]]; then
+    printf "%dh %dm" "$hours" "$minutes"
+  elif [[ $hours -gt 0 ]]; then
+    printf "%dh" "$hours"
+  elif [[ $minutes -gt 0 ]]; then
+    printf "%dm" "$minutes"
+  else
+    printf "<1m"
+  fi
+}
+
+_sso_remaining() {
+  local profile="$1"
+  local start_url cache_dir cache_file expires_at
+  local normalized expiry_epoch now_epoch remaining
+
+  start_url="$(AWS_PAGER="" aws configure get sso_start_url --profile "$profile" 2>/dev/null || true)"
+  start_url="${start_url// /}"
+
+  [[ -n "$start_url" ]] || return 0
+
+  cache_dir="$AWX_SSO_CACHE_DIR"
+  [[ -d "$cache_dir" ]] || return 0
+
+  for cache_file in "$cache_dir"/*.json; do
+    [[ -f "$cache_file" ]] || continue
+    jq -e --arg url "$start_url" '.startUrl == $url' "$cache_file" >/dev/null 2>&1 || continue
+
+    expires_at="$(jq -r '.expiresAt // empty' "$cache_file")"
+    [[ -n "$expires_at" ]] || return 0
+
+    if [[ "$(uname)" == "Darwin" ]]; then
+      normalized="${expires_at%Z}"
+      normalized="${normalized%%+*}"
+      expiry_epoch=$(date -ju -f "%Y-%m-%dT%H:%M:%S" "$normalized" +%s 2>/dev/null || echo "")
+    else
+      expiry_epoch=$(date -d "$expires_at" +%s 2>/dev/null || echo "")
+    fi
+
+    [[ -n "$expiry_epoch" ]] || return 0
+
+    now_epoch=$(date +%s)
+    remaining=$((expiry_epoch - now_epoch))
+    [[ $remaining -gt 0 ]] || return 0
+
+    printf "%d" "$remaining"
+    return 0
+  done
+}
+
 awx_profiles() {
-  # Only aws is needed here (no fzf/jq), so require_cmd aws is used directly
   require_cmd aws
+  require_cmd jq
   local filter_profile="${1:-}"
-  local profiles_out _awx_interrupted=0 _prev_int_trap
+  local profiles_out _awx_interrupted=0 _prev_int_trap remaining_str
 
   if [[ -n "$filter_profile" ]]; then
     profiles_out="$filter_profile"
@@ -454,7 +514,12 @@ awx_profiles() {
     if [[ "$_awx_interrupted" -eq 1 ]]; then break; fi
     if AWS_PAGER="" aws sts get-caller-identity \
       --profile "$profile" >/dev/null 2>&1; then
-      printf "%-40s ACTIVE\n" "$profile"
+      remaining_str="$(_sso_remaining "$profile")"
+      if [[ -n "$remaining_str" ]]; then
+        printf "%-40s ACTIVE (%s remaining)\n" "$profile" "$(format_duration "$remaining_str")"
+      else
+        printf "%-40s ACTIVE\n" "$profile"
+      fi
     else
       printf "%-40s EXPIRED\n" "$profile"
     fi
