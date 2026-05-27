@@ -437,3 +437,74 @@ EOM
   rm -f "$AWX_STATE_FILE"
   rm -rf "$AWX_CACHE_DIR"
 }
+
+# ---------------------------------------------------------------------------
+# AWS_PROFILE unset in Azure paths
+# ---------------------------------------------------------------------------
+
+@test "awx_azure_use unsets AWS_PROFILE and AWS_REGION" {
+  export AWX_STATE_FILE
+  AWX_STATE_FILE="$(mktemp)"
+  rm -f "$AWX_STATE_FILE"
+
+  source ./awx
+  export AWS_PROFILE="old-aws-profile"
+  export AWS_REGION="eu-central-1"
+  export AWS_DEFAULT_REGION="eu-central-1"
+  AWX_PROVIDER="azure"
+
+  kubectl() {
+    case "$*" in
+      "config get-contexts -o name") echo "lynqtech-dev" ;;
+      "config use-context lynqtech-dev") return 0 ;;
+      "config view"*) echo "kubelogin" ;;
+    esac
+  }
+  export -f kubectl
+
+  kubelogin() { return 0; }
+  export -f kubelogin
+
+  awx_azure_use 2>/dev/null
+
+  [ -z "${AWS_PROFILE:-}" ]
+  [ -z "${AWS_REGION:-}" ]
+  [ -z "${AWS_DEFAULT_REGION:-}" ]
+
+  rm -f "$AWX_STATE_FILE"
+}
+
+@test "awx_prev Azure branch unsets AWS_PROFILE and AWS_REGION" {
+  export AWX_STATE_FILE
+  AWX_STATE_FILE="$(mktemp)"
+  export AWX_CACHE_DIR
+  AWX_CACHE_DIR="$(mktemp -d)"
+
+  # Seed state: current=aws-profile,aws-cluster  previous=azure:lynqtech-dev,
+  printf "aws-profile,aws-cluster\nazure:lynqtech-dev,\n" >"$AWX_STATE_FILE"
+
+  source ./awx
+  export AWS_PROFILE="aws-profile"
+  export AWS_REGION="eu-central-1"
+  export AWS_DEFAULT_REGION="eu-central-1"
+
+  kubectl() {
+    case "$*" in
+      "config use-context lynqtech-dev") return 0 ;;
+      "config view"*) echo "kubelogin" ;;
+    esac
+  }
+  export -f kubectl
+
+  kubelogin() { return 0; }
+  export -f kubelogin
+
+  awx_prev 2>/dev/null
+
+  [ -z "${AWS_PROFILE:-}" ]
+  [ -z "${AWS_REGION:-}" ]
+  [ -z "${AWS_DEFAULT_REGION:-}" ]
+
+  rm -f "$AWX_STATE_FILE"
+  rm -rf "$AWX_CACHE_DIR"
+}

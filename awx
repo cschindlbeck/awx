@@ -439,6 +439,10 @@ awx_azure_use() {
   kubelogin convert-kubeconfig -l "$AWX_KUBELOGIN_LOGIN_TYPE" || die "kubelogin convert-kubeconfig failed"
   log "kubelogin authentication configured"
 
+  unset AWS_PROFILE
+  unset AWS_REGION
+  unset AWS_DEFAULT_REGION
+
   _awx_state_write "azure:${ctx}" ""
 }
 
@@ -877,6 +881,9 @@ awx_prev() {
     log "Switched to Azure context: $prev_ctx"
     kubelogin convert-kubeconfig -l "$AWX_KUBELOGIN_LOGIN_TYPE" || die "kubelogin convert-kubeconfig failed"
     log "kubelogin authentication configured"
+    unset AWS_PROFILE
+    unset AWS_REGION
+    unset AWS_DEFAULT_REGION
     return 0
   fi
 
