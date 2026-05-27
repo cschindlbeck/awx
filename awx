@@ -25,11 +25,13 @@ else
   COL_RESET=""
 fi
 
-AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"                        # Retries for EKS API calls after SSO login
-AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}"                # Seconds between EKS API retries
-AWX_STS_RETRIES="${AWX_STS_RETRIES:-10}"                       # Retries waiting for STS after SSO login
-AWX_NO_ASCII="${AWX_NO_ASCII:-false}"                          # Set to "true" to suppress ASCII art banner
-AWX_SSO_CACHE_DIR="${AWX_SSO_CACHE_DIR:-$HOME/.aws/sso/cache}" # SSO token cache directory
+AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"                             # Retries for EKS API calls after SSO login
+AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}"                     # Seconds between EKS API retries
+AWX_STS_RETRIES="${AWX_STS_RETRIES:-10}"                            # Retries waiting for STS after SSO login
+AWX_NO_ASCII="${AWX_NO_ASCII:-false}"                               # Set to "true" to suppress ASCII art banner
+AWX_SSO_CACHE_DIR="${AWX_SSO_CACHE_DIR:-$HOME/.aws/sso/cache}"      # SSO token cache directory
+AWX_PROVIDER="${AWX_PROVIDER:-}"                                    # aws | azure | empty = auto-detect
+AWX_KUBELOGIN_LOGIN_TYPE="${AWX_KUBELOGIN_LOGIN_TYPE:-interactive}" # interactive | azurecli | devicecode | spn
 
 # ---------------------------------------------------------------------------
 # EKS cluster cache — avoids repeated AWS API calls
@@ -97,6 +99,25 @@ check_deps() {
   require_cmd aws
   require_cmd fzf
   require_cmd jq
+}
+
+_detect_provider() {
+  if [[ -n "${AWX_PROVIDER:-}" ]]; then
+    printf "%s" "$AWX_PROVIDER"
+    return 0
+  fi
+  if command -v kubectl >/dev/null 2>&1; then
+    local exec_cmd current_user
+    current_user="$(kubectl config view --minify -o jsonpath='{.contexts[0].context.user}' 2>/dev/null || true)"
+    if [[ -n "$current_user" ]]; then
+      exec_cmd="$(kubectl config view -o jsonpath="{.users[?(@.name==\"${current_user}\")].user.exec.command}" 2>/dev/null || true)"
+      if [[ "$exec_cmd" == "kubelogin" ]]; then
+        printf "azure"
+        return 0
+      fi
+    fi
+  fi
+  printf "aws"
 }
 
 aws_ensure_session() {
