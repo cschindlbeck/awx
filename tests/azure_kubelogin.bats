@@ -353,3 +353,87 @@ EOM
   [ "$status" -ne 0 ]
   [[ "${output}" =~ "awx refresh is AWS-only" ]]
 }
+
+# ---------------------------------------------------------------------------
+# awx - (prev) with Azure state
+# ---------------------------------------------------------------------------
+
+@test "awx - switches to Azure previous context" {
+  export AWX_STATE_FILE
+  AWX_STATE_FILE="$(mktemp)"
+  rm -f "$AWX_STATE_FILE"
+  export AWX_CACHE_DIR
+  AWX_CACHE_DIR="$(mktemp -d)"
+
+  mkdir -p mock/bin
+  export PATH="$(pwd)/mock/bin:$PATH"
+
+  cat >mock/bin/kubectl <<'EOM'
+#!/bin/bash
+if [[ "$*" == "config use-context"* ]]; then
+  exit 0
+elif [[ "$*" == *"contexts[0].context.user"* ]]; then
+  echo "azure-user"
+elif [[ "$*" == *"users[?("* ]]; then
+  echo "kubelogin"
+fi
+EOM
+  cat >mock/bin/kubelogin <<'EOM'
+#!/bin/bash
+exit 0
+EOM
+  chmod +x mock/bin/kubectl mock/bin/kubelogin
+
+  # Seed state: current=aws-profile,aws-cluster  previous=azure:lynqtech-dev,
+  printf "aws-profile,aws-cluster\nazure:lynqtech-dev,\n" >"$AWX_STATE_FILE"
+
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx - 2>&1
+  [ "$status" -eq 0 ]
+  [[ "${output}" =~ "lynqtech-dev" ]]
+  [[ "${output}" =~ "kubelogin authentication configured" ]]
+
+  rm -f "$AWX_STATE_FILE"
+  rm -rf "$AWX_CACHE_DIR"
+}
+
+@test "awx - switches from Azure back to AWS" {
+  export AWX_STATE_FILE
+  AWX_STATE_FILE="$(mktemp)"
+  rm -f "$AWX_STATE_FILE"
+  export AWX_CACHE_DIR
+  AWX_CACHE_DIR="$(mktemp -d)"
+
+  mkdir -p mock/bin
+  export PATH="$(pwd)/mock/bin:$PATH"
+
+  cat >mock/bin/aws <<'EOM'
+#!/bin/bash
+if [[ "$*" == configure* ]]; then echo "eu-central-1"
+elif [[ "$*" == sts* ]]; then echo '{"UserId":"X","Account":"123","Arn":"arn"}'
+elif [[ "$*" == eks\ update-kubeconfig* ]]; then exit 0
+fi
+EOM
+  cat >mock/bin/jq <<'EOM'
+#!/bin/bash
+if [[ "$*" == -e* ]]; then exit 0; fi
+cat
+EOM
+  cat >mock/bin/kubectl <<'EOM'
+#!/bin/bash
+if [[ "$*" == "config get-contexts -o name" ]]; then exit 0; fi
+if [[ "$*" == "config use-context"* ]]; then exit 0; fi
+if [[ "$*" == *"contexts[0].context.user"* ]]; then echo "aws-user"; fi
+if [[ "$*" == *"users[?("* ]]; then echo "aws"; fi
+EOM
+  chmod +x mock/bin/aws mock/bin/jq mock/bin/kubectl
+
+  # Seed state: current=azure:lynqtech-dev,  previous=dev-profile,dev-cluster
+  printf "azure:lynqtech-dev,\ndev-profile,dev-cluster\n" >"$AWX_STATE_FILE"
+
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx - 2>&1
+  [ "$status" -eq 0 ]
+  [[ "${output}" =~ "dev-profile" ]]
+
+  rm -f "$AWX_STATE_FILE"
+  rm -rf "$AWX_CACHE_DIR"
+}

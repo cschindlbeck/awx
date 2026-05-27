@@ -867,6 +867,19 @@ awx_prev() {
   # not updated. Run 'awx -' again to recover or manually run 'awx use'.
   printf "%s\n%s\n" "$prev_line" "$current_line" >"$AWX_STATE_FILE"
 
+  # Handle Azure previous environment
+  if [[ "$prev_profile" == azure:* ]]; then
+    require_cmd kubectl
+    require_cmd kubelogin
+    local prev_ctx
+    prev_ctx="${prev_profile#azure:}"
+    kubectl config use-context "$prev_ctx" >/dev/null || die "Failed to switch to Azure context: $prev_ctx"
+    log "Switched to Azure context: $prev_ctx"
+    kubelogin convert-kubeconfig -l "$AWX_KUBELOGIN_LOGIN_TYPE" || die "kubelogin convert-kubeconfig failed"
+    log "kubelogin authentication configured"
+    return 0
+  fi
+
   export AWS_PROFILE="$prev_profile"
   export AWS_REGION="$DEFAULT_REGION"
   log "Switched to profile: $AWS_PROFILE (region: $AWS_REGION)"
