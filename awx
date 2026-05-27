@@ -375,6 +375,24 @@ select_cluster_for_profile() {
     --preview "aws eks describe-cluster --name {} --region '${DEFAULT_REGION}'"
 }
 
+# Present all kubeconfig contexts via fzf and return the selected one.
+# Returns 1 (silently) when kubectl is unavailable, no contexts exist, or
+# the user cancels the fzf picker.
+_select_kubeconfig_context() {
+  command -v kubectl >/dev/null 2>&1 || return 1
+  local contexts ctx_count
+  contexts="$(kubectl config get-contexts -o name 2>/dev/null || true)"
+  if [[ -z "$contexts" ]]; then
+    return 1
+  fi
+  ctx_count="$(printf "%s\n" "$contexts" | wc -l | tr -d ' ')"
+  if [[ "$ctx_count" -eq 1 ]]; then
+    printf "%s\n" "$contexts"
+    return 0
+  fi
+  printf "%s\n" "$contexts" | fzf --prompt="Select kubeconfig context: " || return 1
+}
+
 _kubeconfig_context_exists() {
   local context="$1"
   # Returns 0 only when kubectl is available AND the named context exists.
@@ -515,7 +533,17 @@ _awx_use_aws() {
 
   if [[ -z "$cluster" ]]; then
     if ! cluster="$(select_cluster_for_profile "$profile")"; then
-      _awx_state_write "$profile" ""
+      # No EKS clusters — fall back to kubeconfig context selection
+      local selected_ctx=""
+      selected_ctx="$(_select_kubeconfig_context)" || true
+      if [[ -z "$selected_ctx" ]]; then
+        _awx_state_write "$profile" ""
+        return 0
+      fi
+      kubectl config use-context "$selected_ctx" >/dev/null || die "Failed to switch to context: $selected_ctx"
+      log "Switched to context: $selected_ctx"
+      _awx_state_write "$profile" "$selected_ctx"
+      _awx_run_kubelogin_if_needed
       return 0
     fi
   fi
@@ -906,7 +934,12 @@ awx_prev() {
   aws_ensure_session "$prev_profile"
 
   if [[ -n "$prev_cluster" ]]; then
-    _eks_update_kubeconfig "$prev_profile" "$prev_cluster" "$DEFAULT_REGION"
+    if _kubeconfig_context_exists "$prev_cluster"; then
+      kubectl config use-context "$prev_cluster" >/dev/null || die "Failed to switch to context: $prev_cluster"
+      log "Switched to context: $prev_cluster"
+    else
+      _eks_update_kubeconfig "$prev_profile" "$prev_cluster" "$DEFAULT_REGION"
+    fi
   else
     warn "No cluster stored for previous environment; kubeconfig not updated"
   fi

@@ -565,3 +565,101 @@ EOM
   rm -f "$AWX_STATE_FILE"
   rm -rf "$AWX_CACHE_DIR"
 }
+
+# ---------------------------------------------------------------------------
+# Combined context/cluster selection in AWS flow
+# ---------------------------------------------------------------------------
+
+@test "awx use in AWS mode selects kubeconfig context when no EKS clusters exist" {
+  mkdir -p mock/bin
+  export PATH="$(pwd)/mock/bin:$PATH"
+
+  cat >mock/bin/aws <<'EOM'
+#!/bin/bash
+if [[ "$*" == configure* ]]; then echo "eu-central-1"
+elif [[ "$*" == sts* ]]; then echo '{"UserId":"X","Account":"123","Arn":"arn"}'
+elif [[ "$*" == eks\ list-clusters* ]]; then echo '{"clusters":[]}'
+fi
+EOM
+  cat >mock/bin/jq <<'EOM'
+#!/bin/bash
+if [[ "$*" == -e* ]]; then exit 0; fi
+if [[ "$*" == -r* ]]; then printf ""; exit 0; fi
+cat
+EOM
+  cat >mock/bin/fzf <<'EOM'
+#!/bin/bash
+head -n1
+EOM
+  cat >mock/bin/kubectl <<'EOM'
+#!/bin/bash
+if [[ "$*" == "config get-contexts -o name" ]]; then echo "lynqtech-dev"; fi
+if [[ "$*" == "config use-context lynqtech-dev" ]]; then exit 0; fi
+if [[ "$*" == *"contexts[0].context.user"* ]]; then echo "azure-user"; fi
+if [[ "$*" == *"users[?("* ]]; then echo "kubelogin"; fi
+if [[ "$*" == "config view --minify"* ]]; then echo "kubelogin"; fi
+EOM
+  cat >mock/bin/kubelogin <<'EOM'
+#!/bin/bash
+echo "kubelogin $*" >/tmp/awx_test_kubelogin_ctx_sel
+exit 0
+EOM
+  chmod +x mock/bin/aws mock/bin/jq mock/bin/fzf mock/bin/kubectl mock/bin/kubelogin
+
+  run ./awx use --profile test-profile 2>&1
+  [ "$status" -eq 0 ]
+  [[ "${output}" =~ "Switched to context: lynqtech-dev" ]]
+  [[ "${output}" =~ "kubelogin authentication configured" ]]
+  grep -q "convert-kubeconfig -l interactive" /tmp/awx_test_kubelogin_ctx_sel
+  rm -f /tmp/awx_test_kubelogin_ctx_sel
+}
+
+@test "awx - in AWS mode uses kubectl context directly when it exists in kubeconfig" {
+  export AWX_STATE_FILE
+  AWX_STATE_FILE="$(mktemp)"
+  export AWX_CACHE_DIR
+  AWX_CACHE_DIR="$(mktemp -d)"
+
+  mkdir -p mock/bin
+  export PATH="$(pwd)/mock/bin:$PATH"
+
+  cat >mock/bin/aws <<'EOM'
+#!/bin/bash
+if [[ "$*" == configure* ]]; then echo "eu-central-1"
+elif [[ "$*" == sts* ]]; then echo '{"UserId":"X","Account":"123","Arn":"arn"}'
+fi
+EOM
+  cat >mock/bin/jq <<'EOM'
+#!/bin/bash
+if [[ "$*" == -e* ]]; then exit 0; fi
+cat
+EOM
+  cat >mock/bin/kubectl <<'EOM'
+#!/bin/bash
+if [[ "$*" == "config get-contexts -o name" ]]; then echo "lynqtech-dev"; fi
+if [[ "$*" == "config use-context lynqtech-dev" ]]; then exit 0; fi
+if [[ "$*" == *"contexts[0].context.user"* ]]; then echo "azure-user"; fi
+if [[ "$*" == *"users[?("* ]]; then echo "kubelogin"; fi
+if [[ "$*" == "config view --minify"* ]]; then echo "kubelogin"; fi
+EOM
+  cat >mock/bin/kubelogin <<'EOM'
+#!/bin/bash
+echo "kubelogin $*" >/tmp/awx_test_kubelogin_prev_ctx
+exit 0
+EOM
+  chmod +x mock/bin/aws mock/bin/jq mock/bin/kubectl mock/bin/kubelogin
+
+  # previous state has lynqtech-dev stored as the context name
+  printf "azure:lynqtech-dev,\ndev-profile,lynqtech-dev\n" >"$AWX_STATE_FILE"
+
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx - 2>&1
+  [ "$status" -eq 0 ]
+  [[ "${output}" =~ "dev-profile" ]]
+  [[ "${output}" =~ "Switched to context: lynqtech-dev" ]]
+  [[ "${output}" =~ "kubelogin authentication configured" ]]
+  grep -q "convert-kubeconfig -l interactive" /tmp/awx_test_kubelogin_prev_ctx
+  rm -f /tmp/awx_test_kubelogin_prev_ctx
+
+  rm -f "$AWX_STATE_FILE"
+  rm -rf "$AWX_CACHE_DIR"
+}
