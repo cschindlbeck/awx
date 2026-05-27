@@ -920,6 +920,15 @@ EOF
   echo "  ctx                               Switch kubeconfig context via fzf"
   echo "  -                                 Toggle back to previous AWS profile/cluster (like cd -)"
   echo "  help | -h                         Show this help message"
+  echo ""
+  echo "Azure / kubelogin mode (set AWX_PROVIDER=azure or auto-detected from kubeconfig):"
+  echo "  use                               Select kubeconfig context and configure kubelogin"
+  echo "  whoami                            Show current kubeconfig context"
+  echo "  ctx                               Switch kubeconfig context via fzf"
+  echo ""
+  echo "Environment variables:"
+  echo "  AWX_PROVIDER                      Force provider: aws | azure (default: auto-detect)"
+  echo "  AWX_KUBELOGIN_LOGIN_TYPE          kubelogin auth type: interactive | azurecli | devicecode (default: interactive)"
 }
 
 awx() {

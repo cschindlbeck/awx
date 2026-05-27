@@ -27,6 +27,32 @@ _Blazginly Fast AWS Profile & EKS Context Switcher_
 - Reset environment and clear cached data with **`awx clear`**
 - Force refresh of SSO session with **`awx refresh`**
 
+### Azure AD / kubelogin support
+
+`awx` supports Azure AD authentication via [kubelogin](https://github.com/Azure/kubelogin) for Kubernetes clusters using Azure-based auth.
+
+**Prerequisites:** `kubectl`, `kubelogin`, `fzf`
+
+**Auto-detection:** If the current kubeconfig context uses `kubelogin` as the exec credential plugin, Azure mode is selected automatically. No configuration required.
+
+**Manual override:**
+
+```bash
+export AWX_PROVIDER=azure
+awx use   # fzf context picker + kubelogin convert-kubeconfig
+```
+
+**Login type** (defaults to `interactive`, opens browser):
+
+```bash
+export AWX_KUBELOGIN_LOGIN_TYPE=azurecli   # use cached az login token
+awx use
+```
+
+Available types: `interactive` (default), `azurecli`, `devicecode`, `spn`.
+
+In Azure mode, `awx use`, `awx whoami`, `awx ctx`, `awx current`, and `awx clear` work as normal. AWS-specific commands (`profiles`, `eks`, `logout`, `refresh`) are not available and will print a helpful error.
+
 ## Usage
 `awx` is a versatile script for managing AWS profiles and EKS kubeconfig contexts. Below are the primary commands and their purposes:
 
@@ -119,7 +145,7 @@ INSTALL_DIR=~/bin NO_MODIFY_SHELL_RC=true \
 - [AWS CLI](https://aws.amazon.com/cli/)
 - [fzf](https://github.com/junegunn/fzf)
 - [jq](https://jqlang.org/)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) _(optional but recommended — enables fast context switching without a full `aws eks update-kubeconfig` call)_
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) _(optional but recommended - enables fast context switching without a full `aws eks update-kubeconfig` call)_
 
 #### 2. Clone and Set Up
 ```sh
@@ -230,7 +256,7 @@ Automated quality checks, formatting, and linting are enforced by [pre-commit](h
 
 ## Tips & Behavior
 - If required tools (`aws`, `fzf`, or `jq`) are missing, `awx` will tell you exactly what to install.
-- `kubectl` is an optional but recommended dependency. When present, `awx` skips `aws eks update-kubeconfig` if the target context (named after the profile) already exists in your kubeconfig, and instead calls `kubectl config use-context` directly — significantly reducing latency on repeated calls. Without `kubectl`, a full `aws eks update-kubeconfig` is always run.
+- `kubectl` is an optional but recommended dependency. When present, `awx` skips `aws eks update-kubeconfig` if the target context (named after the profile) already exists in your kubeconfig, and instead calls `kubectl config use-context` directly, significantly reducing latency on repeated calls. Without `kubectl`, a full `aws eks update-kubeconfig` is always run.
 - `kubeconfig` is updated *per profile*; back up your old file if you need persistent custom setups.
 - **Credential detection is automatic**: `awx` checks for `sso_start_url` to detect SSO profiles and `aws_access_key_id` for static credentials. No manual configuration required.
 - If a profile has both SSO and static credentials configured, SSO is attempted first. On SSO failure, `awx` falls back to static credentials automatically.
