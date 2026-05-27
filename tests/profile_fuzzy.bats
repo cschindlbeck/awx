@@ -31,11 +31,13 @@ EOF
   export AWX_STATE_FILE
   AWX_STATE_FILE="$(mktemp)"
   rm -f "$AWX_STATE_FILE"
+  export AWX_PROVIDER=aws
 }
 
 teardown() {
   rm -rf mock
   rm -f "${AWX_STATE_FILE:-}"
+  unset AWX_PROVIDER
 }
 
 # ---------------------------------------------------------------------------

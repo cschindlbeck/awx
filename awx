@@ -96,9 +96,19 @@ require_cmd() {
 }
 
 check_deps() {
-  require_cmd aws
-  require_cmd fzf
-  require_cmd jq
+  local provider="${1:-aws}"
+  case "$provider" in
+    azure)
+      require_cmd kubelogin
+      require_cmd kubectl
+      require_cmd fzf
+      ;;
+    *)
+      require_cmd aws
+      require_cmd fzf
+      require_cmd jq
+      ;;
+  esac
 }
 
 _detect_provider() {
@@ -383,7 +393,66 @@ _eks_update_kubeconfig() {
   fi
 }
 
+awx_azure_use() {
+  local ctx=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --context)
+        [[ -n "${2:-}" ]] || die "--context requires a value"
+        ctx="$2"
+        shift 2
+        ;;
+      *) die "Unknown flag for Azure mode: $1" ;;
+    esac
+  done
+
+  check_deps "azure"
+
+  local contexts
+  contexts="$(kubectl config get-contexts -o name 2>/dev/null || true)"
+  if [[ -z "$contexts" ]]; then
+    die "No kubeconfig contexts found. Check ~/.kube/config"
+  fi
+
+  if [[ -z "$ctx" ]]; then
+    local ctx_count
+    ctx_count="$(printf "%s\n" "$contexts" | wc -l | tr -d ' ')"
+    if [[ "$ctx_count" -eq 1 ]]; then
+      ctx="$contexts"
+      # redirect to stderr so log message doesn't pollute stdout when output is captured
+      log "Auto-selecting the only available context: $ctx" >&2
+    else
+      ctx="$(printf "%s\n" "$contexts" | fzf --prompt="Select kubeconfig context: ")" || true
+    fi
+  fi
+
+  if [[ -z "$ctx" ]]; then
+    warn "No context selected"
+    return 1
+  fi
+
+  kubectl config use-context "$ctx" >/dev/null || die "Failed to switch to context: $ctx"
+  log "Switched to context: $ctx"
+
+  log "Running kubelogin convert-kubeconfig (login type: $AWX_KUBELOGIN_LOGIN_TYPE)"
+  kubelogin convert-kubeconfig -l "$AWX_KUBELOGIN_LOGIN_TYPE" || die "kubelogin convert-kubeconfig failed"
+  log "kubelogin authentication configured"
+
+  _awx_state_write "azure:${ctx}" ""
+}
+
 awx_use() {
+  local provider
+  provider="$(_detect_provider)"
+  case "$provider" in
+    azure) awx_azure_use "$@" ;;
+    aws) _awx_use_aws "$@" ;;
+    *) die "Unknown AWX_PROVIDER: $provider. Valid values: aws, azure" ;;
+  esac
+}
+
+_awx_use_aws() {
   local profile=""
   local cluster=""
   local fuzzy=0
@@ -412,7 +481,7 @@ awx_use() {
     esac
   done
 
-  check_deps
+  check_deps "aws"
 
   if [[ -z "$profile" ]]; then
     profile="$(select_profile || true)"

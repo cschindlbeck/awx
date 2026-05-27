@@ -43,11 +43,13 @@ EOM
 
   rm -f /tmp/awx_update_kubeconfig_calls
   export PATH="$(pwd)/mock/bin:$PATH"
+  export AWX_PROVIDER=aws
 }
 
 teardown() {
   rm -f "${AWX_STATE_FILE:-}" /tmp/awx_update_kubeconfig_calls
   rm -rf mock
+  unset AWX_PROVIDER
 }
 
 @test "update-kubeconfig is skipped when context already exists" {

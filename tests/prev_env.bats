@@ -6,12 +6,14 @@ setup() {
   mkdir -p "$(dirname "$AWX_STATE_FILE")"
   export AWX_CACHE_DIR
   AWX_CACHE_DIR="$(mktemp -d)"
+  export AWX_PROVIDER=aws
 }
 
 teardown() {
   rm -f "${AWX_STATE_FILE:-}"
   rm -rf "${AWX_CACHE_DIR:-}"
   rm -rf mock
+  unset AWX_PROVIDER
 }
 
 @test "state file is created after awx use with profile and cluster" {

@@ -9,6 +9,7 @@ setup() {
   export AWX_STS_RETRIES=2
   mkdir -p mock/bin
   export PATH="$(pwd)/mock/bin:$PATH"
+  export AWX_PROVIDER=aws
 }
 
 teardown() {
@@ -16,6 +17,7 @@ teardown() {
   rm -rf "${AWX_CACHE_DIR:-}"
   rm -rf mock
   rm -f "/tmp/awx_use_reauth_$$"
+  unset AWX_PROVIDER
 }
 
 @test "awx use triggers sso login when session is expired" {

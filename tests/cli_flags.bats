@@ -34,12 +34,14 @@ EOF
   rm -f "$AWX_STATE_FILE"
   export AWX_CACHE_DIR
   AWX_CACHE_DIR="$(mktemp -d)"
+  export AWX_PROVIDER=aws
 }
 
 teardown() {
   rm -rf mock
   rm -f "${AWX_STATE_FILE:-}"
   rm -rf "${AWX_CACHE_DIR:-}"
+  unset AWX_PROVIDER
 }
 
 # ---------------------------------------------------------------------------
