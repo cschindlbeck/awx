@@ -610,6 +610,11 @@ awx_ctx() {
 }
 
 awx_profiles() {
+  local provider
+  provider="$(_detect_provider)"
+  if [[ "$provider" == "azure" ]]; then
+    die "awx profiles is AWS-only. Use: kubectl config get-contexts"
+  fi
   require_cmd aws
   require_cmd jq
   local filter_profile="${1:-}"
@@ -655,6 +660,11 @@ awx_profiles() {
 }
 
 awx_eks() {
+  local provider
+  provider="$(_detect_provider)"
+  if [[ "$provider" == "azure" ]]; then
+    die "awx eks is AWS-only. Use: awx use to switch contexts"
+  fi
   local subcommand="${1:-}"
   local profile="${AWS_PROFILE:-}"
   local cluster
@@ -717,6 +727,11 @@ awx_update() {
   log "Reload your shell to apply the update."
 }
 awx_logout() {
+  local provider
+  provider="$(_detect_provider)"
+  if [[ "$provider" == "azure" ]]; then
+    die "awx logout is AWS-only. Use: az logout"
+  fi
   local profile="${AWS_PROFILE:-}"
 
   if [[ -z "$profile" ]]; then
@@ -770,6 +785,11 @@ awx_clear() {
 }
 
 awx_refresh() {
+  local provider
+  provider="$(_detect_provider)"
+  if [[ "$provider" == "azure" ]]; then
+    die "awx refresh is AWS-only. Re-run: awx use"
+  fi
   local profile="${AWS_PROFILE:-}"
 
   if [[ -z "$profile" ]]; then

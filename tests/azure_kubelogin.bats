@@ -323,3 +323,33 @@ EOM
   [[ "${output}" =~ "lynqtech-dev" ]]
   [[ "${output}" != *"aws"* ]]
 }
+
+# ---------------------------------------------------------------------------
+# AWS-only command guards
+# ---------------------------------------------------------------------------
+
+@test "awx profiles fails with clear error in Azure mode" {
+  AWX_PROVIDER="azure" run ./awx profiles 2>&1
+  [ "$status" -ne 0 ]
+  [[ "${output}" =~ "awx profiles is AWS-only" ]]
+  [[ "${output}" =~ "kubectl config get-contexts" ]]
+}
+
+@test "awx eks list fails with clear error in Azure mode" {
+  AWX_PROVIDER="azure" run ./awx eks list 2>&1
+  [ "$status" -ne 0 ]
+  [[ "${output}" =~ "awx eks is AWS-only" ]]
+}
+
+@test "awx logout fails with clear error in Azure mode" {
+  AWX_PROVIDER="azure" run ./awx logout 2>&1
+  [ "$status" -ne 0 ]
+  [[ "${output}" =~ "awx logout is AWS-only" ]]
+  [[ "${output}" =~ "az logout" ]]
+}
+
+@test "awx refresh fails with clear error in Azure mode" {
+  AWX_PROVIDER="azure" run ./awx refresh 2>&1
+  [ "$status" -ne 0 ]
+  [[ "${output}" =~ "awx refresh is AWS-only" ]]
+}
