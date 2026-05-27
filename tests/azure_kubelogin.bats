@@ -294,3 +294,32 @@ EOM
   [ "$status" -eq 0 ]
   grep -q "convert-kubeconfig -l interactive" "$KUBELOGIN_DEFAULT_CALL_FILE"
 }
+
+# ---------------------------------------------------------------------------
+# awx whoami in Azure mode
+# ---------------------------------------------------------------------------
+
+@test "awx whoami in Azure mode shows kubectl context info without aws" {
+  mkdir -p mock/bin
+  export PATH="$(pwd)/mock/bin:$PATH"
+
+  cat >mock/bin/kubectl <<'EOM'
+#!/bin/bash
+if [[ "$*" == "config current-context" ]]; then
+  echo "lynqtech-dev"
+elif [[ "$*" == "config view --minify" ]]; then
+  echo "apiVersion: v1"
+  echo "current-context: lynqtech-dev"
+elif [[ "$*" == *"contexts[0].context.user"* ]]; then
+  echo "azure-user"
+elif [[ "$*" == *"users[?("* ]]; then
+  echo "kubelogin"
+fi
+EOM
+  chmod +x mock/bin/kubectl
+
+  AWX_PROVIDER="azure" run ./awx whoami 2>&1
+  [ "$status" -eq 0 ]
+  [[ "${output}" =~ "lynqtech-dev" ]]
+  [[ "${output}" != *"aws"* ]]
+}

@@ -512,6 +512,18 @@ _awx_use_aws() {
 }
 
 awx_whoami() {
+  local provider
+  provider="$(_detect_provider)"
+
+  if [[ "$provider" == "azure" ]]; then
+    require_cmd kubectl
+    local ctx
+    ctx="$(kubectl config current-context 2>/dev/null)" || die "No active kubeconfig context"
+    log "Current context: $ctx"
+    kubectl config view --minify 2>/dev/null
+    return 0
+  fi
+
   local profile="${AWS_PROFILE:-}"
 
   check_deps
