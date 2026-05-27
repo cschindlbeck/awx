@@ -28,51 +28,10 @@ teardown() {
   [ "$result" = "aws" ]
 }
 
-@test "_detect_provider auto-detects azure when kubeconfig exec is kubelogin" {
+@test "_detect_provider defaults to aws when AWX_PROVIDER is unset" {
   source ./awx
   unset AWX_PROVIDER
-  kubectl() {
-    if [[ "$*" == *"contexts[0].context.user"* ]]; then
-      echo "azure-user"
-      return 0
-    fi
-    if [[ "$*" == *"users[?("* ]]; then
-      echo "kubelogin"
-      return 0
-    fi
-    return 1
-  }
-  export -f kubectl
   result="$(_detect_provider)"
-  [ "$result" = "azure" ]
-}
-
-@test "_detect_provider auto-detects aws when kubeconfig exec is aws" {
-  source ./awx
-  unset AWX_PROVIDER
-  kubectl() {
-    if [[ "$*" == *"contexts[0].context.user"* ]]; then
-      echo "aws-user"
-      return 0
-    fi
-    if [[ "$*" == *"users[?("* ]]; then
-      echo "aws"
-      return 0
-    fi
-    return 1
-  }
-  export -f kubectl
-  result="$(_detect_provider)"
-  [ "$result" = "aws" ]
-}
-
-@test "_detect_provider defaults to aws when kubectl is absent" {
-  local tmpdir
-  tmpdir="$(mktemp -d)"
-  source ./awx
-  unset AWX_PROVIDER
-  result="$(PATH="$tmpdir" _detect_provider 2>/dev/null)"
-  rm -rf "$tmpdir"
   [ "$result" = "aws" ]
 }
 
@@ -433,6 +392,104 @@ EOM
   AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx - 2>&1
   [ "$status" -eq 0 ]
   [[ "${output}" =~ "dev-profile" ]]
+
+  rm -f "$AWX_STATE_FILE"
+  rm -rf "$AWX_CACHE_DIR"
+}
+
+# ---------------------------------------------------------------------------
+# kubelogin auto-run in AWS flow
+# ---------------------------------------------------------------------------
+
+@test "awx use in AWS mode runs kubelogin when context uses it" {
+  mkdir -p mock/bin
+  export PATH="$(pwd)/mock/bin:$PATH"
+
+  cat >mock/bin/aws <<'EOM'
+#!/bin/bash
+if [[ "$*" == configure* ]]; then echo "eu-central-1"
+elif [[ "$*" == sts* ]]; then echo '{"UserId":"X","Account":"123","Arn":"arn"}'
+elif [[ "$*" == eks\ list-clusters* ]]; then echo '{"clusters":["lynqtech-dev"]}'
+elif [[ "$*" == eks\ update-kubeconfig* ]]; then exit 0
+fi
+EOM
+  cat >mock/bin/jq <<'EOM'
+#!/bin/bash
+if [[ "$*" == -e* ]]; then exit 0; fi
+if [[ "$*" == -r* ]]; then printf "lynqtech-dev\n"; exit 0; fi
+cat
+EOM
+  cat >mock/bin/fzf <<'EOM'
+#!/bin/bash
+head -n1
+EOM
+  cat >mock/bin/kubectl <<'EOM'
+#!/bin/bash
+if [[ "$*" == "config get-contexts -o name" ]]; then exit 0; fi
+if [[ "$*" == "config use-context"* ]]; then exit 0; fi
+if [[ "$*" == *"contexts[0].context.user"* ]]; then echo "azure-user"; fi
+if [[ "$*" == *"users[?("* ]]; then echo "kubelogin"; fi
+if [[ "$*" == "config view --minify"* ]]; then echo "kubelogin"; fi
+EOM
+  cat >mock/bin/kubelogin <<'EOM'
+#!/bin/bash
+echo "kubelogin $*" >/tmp/awx_test_kubelogin_aws_flow
+exit 0
+EOM
+  chmod +x mock/bin/aws mock/bin/jq mock/bin/fzf mock/bin/kubectl mock/bin/kubelogin
+
+  run ./awx use --profile test-profile --cluster lynqtech-dev 2>&1
+  [ "$status" -eq 0 ]
+  [[ "${output}" =~ "kubelogin authentication configured" ]]
+  grep -q "convert-kubeconfig -l interactive" /tmp/awx_test_kubelogin_aws_flow
+  rm -f /tmp/awx_test_kubelogin_aws_flow
+}
+
+@test "awx - in AWS mode runs kubelogin when context uses it" {
+  export AWX_STATE_FILE
+  AWX_STATE_FILE="$(mktemp)"
+  export AWX_CACHE_DIR
+  AWX_CACHE_DIR="$(mktemp -d)"
+
+  mkdir -p mock/bin
+  export PATH="$(pwd)/mock/bin:$PATH"
+
+  cat >mock/bin/aws <<'EOM'
+#!/bin/bash
+if [[ "$*" == configure* ]]; then echo "eu-central-1"
+elif [[ "$*" == sts* ]]; then echo '{"UserId":"X","Account":"123","Arn":"arn"}'
+elif [[ "$*" == eks\ update-kubeconfig* ]]; then exit 0
+fi
+EOM
+  cat >mock/bin/jq <<'EOM'
+#!/bin/bash
+if [[ "$*" == -e* ]]; then exit 0; fi
+cat
+EOM
+  cat >mock/bin/kubectl <<'EOM'
+#!/bin/bash
+if [[ "$*" == "config get-contexts -o name" ]]; then exit 0; fi
+if [[ "$*" == "config use-context"* ]]; then exit 0; fi
+if [[ "$*" == *"contexts[0].context.user"* ]]; then echo "azure-user"; fi
+if [[ "$*" == *"users[?("* ]]; then echo "kubelogin"; fi
+if [[ "$*" == "config view --minify"* ]]; then echo "kubelogin"; fi
+EOM
+  cat >mock/bin/kubelogin <<'EOM'
+#!/bin/bash
+echo "kubelogin $*" >/tmp/awx_test_kubelogin_prev_flow
+exit 0
+EOM
+  chmod +x mock/bin/aws mock/bin/jq mock/bin/kubectl mock/bin/kubelogin
+
+  # Seed state: current=azure:lynqtech-dev,  previous=dev-profile,dev-cluster
+  printf "azure:lynqtech-dev,\ndev-profile,dev-cluster\n" >"$AWX_STATE_FILE"
+
+  AWX_STATE_FILE="$AWX_STATE_FILE" run ./awx - 2>&1
+  [ "$status" -eq 0 ]
+  [[ "${output}" =~ "dev-profile" ]]
+  [[ "${output}" =~ "kubelogin authentication configured" ]]
+  grep -q "convert-kubeconfig -l interactive" /tmp/awx_test_kubelogin_prev_flow
+  rm -f /tmp/awx_test_kubelogin_prev_flow
 
   rm -f "$AWX_STATE_FILE"
   rm -rf "$AWX_CACHE_DIR"

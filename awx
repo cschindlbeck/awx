@@ -116,18 +116,27 @@ _detect_provider() {
     printf "%s" "$AWX_PROVIDER"
     return 0
   fi
-  if command -v kubectl >/dev/null 2>&1; then
-    local exec_cmd current_user
-    current_user="$(kubectl config view --minify -o jsonpath='{.contexts[0].context.user}' 2>/dev/null || true)"
-    if [[ -n "$current_user" ]]; then
-      exec_cmd="$(kubectl config view -o jsonpath="{.users[?(@.name==\"${current_user}\")].user.exec.command}" 2>/dev/null || true)"
-      if [[ "$exec_cmd" == "kubelogin" ]]; then
-        printf "azure"
-        return 0
-      fi
-    fi
-  fi
   printf "aws"
+}
+
+# Run kubelogin convert-kubeconfig if the current context uses kubelogin.
+# Safe no-op when kubelogin is absent or the context uses a different exec plugin.
+_awx_run_kubelogin_if_needed() {
+  command -v kubelogin >/dev/null 2>&1 || return 0
+  command -v kubectl >/dev/null 2>&1 || return 0
+  local current_user exec_cmd
+  current_user="$(kubectl config view --minify \
+    -o jsonpath='{.contexts[0].context.user}' 2>/dev/null || true)"
+  [[ -n "$current_user" ]] || return 0
+  exec_cmd="$(kubectl config view \
+    -o jsonpath="{.users[?(@.name==\"${current_user}\")].user.exec.command}" \
+    2>/dev/null || true)"
+  if [[ "$exec_cmd" == "kubelogin" ]]; then
+    log "Running kubelogin convert-kubeconfig (login type: $AWX_KUBELOGIN_LOGIN_TYPE)"
+    kubelogin convert-kubeconfig -l "$AWX_KUBELOGIN_LOGIN_TYPE" ||
+      die "kubelogin convert-kubeconfig failed"
+    log "kubelogin authentication configured"
+  fi
 }
 
 aws_ensure_session() {
@@ -513,6 +522,9 @@ _awx_use_aws() {
 
   _eks_update_kubeconfig "$profile" "$cluster" "$DEFAULT_REGION"
   _awx_state_write "$profile" "$cluster"
+
+  # Transparently run kubelogin if the active context uses it
+  _awx_run_kubelogin_if_needed
 }
 
 awx_whoami() {
@@ -898,6 +910,9 @@ awx_prev() {
   else
     warn "No cluster stored for previous environment; kubeconfig not updated"
   fi
+
+  # Transparently run kubelogin if the active context uses it
+  _awx_run_kubelogin_if_needed
 }
 
 show_help() {
