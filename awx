@@ -507,6 +507,92 @@ awx_ctx() {
   log "Switched to context: $ctx"
 }
 
+_kubeconfig_merge() {
+  local src_path="" do_switch=0
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --switch)
+        do_switch=1
+        shift
+        ;;
+      --*) die "Unknown flag: $1" ;;
+      *)
+        [[ -z "$src_path" ]] || die "Too many arguments. Usage: awx kubeconfig merge <path> [--switch]"
+        src_path="$1"
+        shift
+        ;;
+    esac
+  done
+
+  [[ -n "$src_path" ]] || die "Usage: awx kubeconfig merge <path>"
+  src_path="${src_path/#\~/$HOME}"
+  [[ -f "$src_path" ]] || die "Kubeconfig file not found: $src_path"
+
+  local dest_path
+  if [[ -n "${KUBECONFIG:-}" ]]; then
+    dest_path="${KUBECONFIG%%:*}"
+  else
+    dest_path="$HOME/.kube/config"
+  fi
+
+  local real_src real_dest
+  real_src="$(cd "$(dirname "$src_path")" && pwd)/$(basename "$src_path")"
+  real_dest="$(cd "$(dirname "$dest_path")" 2>/dev/null && pwd)/$(basename "$dest_path")" 2>/dev/null || true
+  if [[ "$real_src" == "$real_dest" ]]; then
+    warn "Source and destination are the same file ($dest_path). Nothing to merge."
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$dest_path")"
+
+  local tmp_out
+  tmp_out="$(mktemp "$(dirname "$dest_path")/.awx_kubeconfig_merge.XXXXXX")"
+  # shellcheck disable=SC2064
+  trap "rm -f '$tmp_out'" EXIT INT TERM
+
+  log "Merging $src_path into $dest_path"
+  if [[ -f "$dest_path" ]]; then
+    KUBECONFIG="${dest_path}:${src_path}" kubectl config view --flatten >"$tmp_out" ||
+      {
+        rm -f "$tmp_out"
+        die "kubectl config view --flatten failed"
+      }
+  else
+    cp "$src_path" "$tmp_out" ||
+      {
+        rm -f "$tmp_out"
+        die "Failed to seed new kubeconfig from $src_path"
+      }
+  fi
+
+  mv "$tmp_out" "$dest_path" ||
+    {
+      rm -f "$tmp_out"
+      die "Failed to write merged kubeconfig to $dest_path"
+    }
+
+  trap - EXIT INT TERM
+  log "Kubeconfig merged successfully: $dest_path"
+
+  if [[ "$do_switch" -eq 1 ]]; then
+    awx_ctx
+  fi
+}
+
+awx_kubeconfig() {
+  local subcommand="${1:-}"
+  require_cmd kubectl
+  [[ -n "$subcommand" ]] || die "Missing kubeconfig subcommand. Usage: awx kubeconfig [merge]"
+  case "$subcommand" in
+    merge)
+      shift
+      _kubeconfig_merge "$@"
+      ;;
+    *) die "Unknown kubeconfig subcommand: $subcommand (expected: merge)" ;;
+  esac
+}
+
 awx_profiles() {
   require_cmd aws
   require_cmd jq
@@ -729,7 +815,7 @@ awx_prev() {
   # profile (e.g. 'awx profiles' treated as a profile shortcut before the
   # command was registered in the dispatcher).
   case "$prev_profile" in
-    use | whoami | profiles | eks | logout | ctx | help | - | current | clear | refresh)
+    use | whoami | profiles | eks | logout | ctx | kubeconfig | help | - | current | clear | refresh)
       die "State file contains reserved name '$prev_profile' as a profile — likely caused by sourcing an old version of awx. Delete $AWX_STATE_FILE to reset."
       ;;
   esac
@@ -783,6 +869,8 @@ EOF
   echo "  refresh                           Force refresh of SSO session"
   echo "  update                            Update awx to the latest version from GitHub"
   echo "  ctx                               Switch kubeconfig context via fzf"
+  echo "  kubeconfig merge <path>           Merge a kubeconfig file into the active config"
+  echo "  kubeconfig merge <path> --switch  Merge, then interactively switch context"
   echo "  -                                 Toggle back to previous AWS profile/cluster (like cd -)"
   echo "  help | -h                         Show this help message"
 }
@@ -826,6 +914,10 @@ awx() {
       ;;
     ctx)
       awx_ctx
+      ;;
+    kubeconfig)
+      if [[ $# -gt 0 ]]; then shift; fi
+      awx_kubeconfig "$@"
       ;;
     -)
       awx_prev

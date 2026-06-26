@@ -18,6 +18,7 @@ _awx() {
     'whoami:Display current AWS identity'
     'profiles:List all configured profiles with session status'
     'ctx:Switch kubeconfig context via fzf'
+    'kubeconfig:Merge external kubeconfig files into the active config'
     'eks:Manage EKS clusters'
     'logout:Logout of current AWS SSO session'
     'update:Update awx to the latest version from GitHub'
@@ -48,6 +49,15 @@ _awx() {
         'update:Update kubeconfig for a specific EKS cluster'
       )
       _describe 'eks subcommand' eks_cmds
+      ;;
+    kubeconfig)
+      if (( CURRENT == 3 )); then
+        local -a kc_cmds
+        kc_cmds=('merge:Merge a kubeconfig file into the active config')
+        _describe 'kubeconfig subcommand' kc_cmds
+      elif (( CURRENT == 4 )) && [[ "${words[3]}" == "merge" ]]; then
+        _files
+      fi
       ;;
   esac
 }
