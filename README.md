@@ -7,7 +7,7 @@
 ![pre-commit](https://github.com/cschindlbeck/awx/actions/workflows/pre-commit.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-_Blazginly Fast AWS Profile & EKS Context Switcher_
+_Blazingly Fast AWS Profile & EKS Context Switcher_
 </div>
 
 ## Overview
