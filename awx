@@ -114,6 +114,30 @@ check_deps() {
   require_cmd jq
 }
 
+# Polls STS until it succeeds or AWX_STS_RETRIES attempts are exhausted.
+_awx_wait_for_sts() {
+  local profile="$1"
+  local i
+  for ((i = 0; i < AWX_STS_RETRIES; i++)); do
+    if aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
+      return 0
+    fi
+    log "Waiting for SSO session to stabilize..."
+    sleep 1
+  done
+  return 1
+}
+
+# Removes the local SSO token cache. A cached token that is not yet past its
+# expiry can make `aws sso login` silently no-op even when the session is
+# actually unusable (e.g. revoked server-side), so this is used to force a
+# real re-authentication.
+_awx_sso_cache_bust() {
+  if [[ -d "$AWX_SSO_CACHE_DIR" ]]; then
+    rm -rf "$AWX_SSO_CACHE_DIR"
+  fi
+}
+
 aws_ensure_session() {
   local profile="$1"
 
@@ -137,21 +161,23 @@ aws_ensure_session() {
     if aws sso login --profile "$profile"; then
       # Retry loop to wait for SSO credentials to propagate after login.
       # AWX_STS_RETRIES attempts x 1s covers slow browser confirmation without hanging forever.
-      local sts_ready=0
-      for ((i = 0; i < AWX_STS_RETRIES; i++)); do
-        if aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
-          sts_ready=1
-          break
-        fi
-        log "Waiting for SSO session to stabilize..."
-        sleep 1
-      done
-
-      if [[ "$sts_ready" -eq 1 ]]; then
+      if _awx_wait_for_sts "$profile"; then
         return 0
       fi
 
-      # SSO login succeeded but STS never stabilized — fall back to static credentials if available
+      # STS never stabilized. A locally-cached SSO token that isn't past its
+      # expiry can make `aws sso login` above silently no-op even though the
+      # session is actually unusable, so clear the cache once and retry
+      # before giving up. This avoids callers having to run 'awx logout' or
+      # 'awx refresh' manually to unstick it.
+      warn "SSO session still not ready; clearing local SSO token cache and retrying login..."
+      _awx_sso_cache_bust
+      if aws sso login --profile "$profile" && _awx_wait_for_sts "$profile"; then
+        return 0
+      fi
+
+      # SSO login succeeded but STS never stabilized even after a cache
+      # reset, fall back to static credentials if available
       if [[ -n "$static_key" ]]; then
         warn "SSO failed, falling back to static credentials for profile: $profile"
         return 0
@@ -160,7 +186,7 @@ aws_ensure_session() {
       # die() exits when standalone, returns 1 when sourced. The explicit
       # return 1 after die() is a no-op for standalone (die already exited)
       # but ensures the calling function returns when sourced.
-      die "SSO session not ready after login. Please run 'awx use' again."
+      die "SSO session not ready after login and cache reset. Please run 'awx use' again."
       return 1
     fi
 
@@ -777,23 +803,13 @@ awx_refresh() {
   fi
 
   if [[ -d "$AWX_SSO_CACHE_DIR" ]]; then
-    rm -rf "$AWX_SSO_CACHE_DIR"
+    _awx_sso_cache_bust
     log "Cleared SSO token cache"
   fi
 
   log "Refreshing SSO session for profile: $profile"
   if aws sso login --profile "$profile"; then
-    local sts_ready=0
-    for ((i = 0; i < AWX_STS_RETRIES; i++)); do
-      if aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
-        sts_ready=1
-        break
-      fi
-      log "Waiting for SSO session to stabilize..."
-      sleep 1
-    done
-
-    if [[ "$sts_ready" -eq 1 ]]; then
+    if _awx_wait_for_sts "$profile"; then
       log "SSO session refreshed for profile: $profile"
       return 0
     fi
