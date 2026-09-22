@@ -11,19 +11,31 @@ DEFAULT_REGION="${DEFAULT_REGION:-${AWS_REGION:-eu-central-1}}"
 DEBUG="${DEBUG:-false}" # Enable debug mode for troubleshooting
 
 # ---------------------------------------------------------------------------
-# Colour support — only emit escape codes when stdout is a TTY with 8+ colours
+# Colour support - re-checked on every log/warn/error call, not once at
+# source time. `awx` is meant to be sourced from shell rc files, and some
+# init tooling (e.g. Powerlevel10k's instant prompt) temporarily redirects
+# stdout to a buffer file while the rc file is still being processed. Caching
+# a single `-t 1` check made colouring depend on shell-startup timing instead
+# of the actual terminal; checking per call reflects the real state.
 # ---------------------------------------------------------------------------
-if [[ -t 1 ]] && tput colors &>/dev/null && [[ "$(tput colors)" -ge 8 ]]; then
-  COL_INFO="$(tput setaf 2)"
-  COL_WARN="$(tput setaf 3)"
-  COL_ERR="$(tput setaf 1)"
-  COL_RESET="$(tput sgr0)"
-else
+COL_INFO=""
+COL_WARN=""
+COL_ERR=""
+COL_RESET=""
+
+_awx_set_colors() {
+  local fd="$1"
   COL_INFO=""
   COL_WARN=""
   COL_ERR=""
   COL_RESET=""
-fi
+  if [[ -t "$fd" ]] && tput colors &>/dev/null && [[ "$(tput colors)" -ge 8 ]]; then
+    COL_INFO="$(tput setaf 2)"
+    COL_WARN="$(tput setaf 3)"
+    COL_ERR="$(tput setaf 1)"
+    COL_RESET="$(tput sgr0)"
+  fi
+}
 
 AWX_EKS_RETRIES="${AWX_EKS_RETRIES:-3}"                        # Retries for EKS API calls after SSO login
 AWX_EKS_RETRY_DELAY="${AWX_EKS_RETRY_DELAY:-2}"                # Seconds between EKS API retries
@@ -73,14 +85,17 @@ _awx_state_read_previous() {
 }
 
 log() {
+  _awx_set_colors 1
   printf "%s[INFO]%s %s\n" "$COL_INFO" "$COL_RESET" "$*"
 }
 
 warn() {
+  _awx_set_colors 2
   printf "%s[WARN]%s %s\n" "$COL_WARN" "$COL_RESET" "$*" >&2
 }
 
 error() {
+  _awx_set_colors 2
   printf "%s[ERROR]%s %s\n" "$COL_ERR" "$COL_RESET" "$*" >&2
 }
 
