@@ -384,20 +384,46 @@ _kubeconfig_context_exists() {
     kubectl config get-contexts -o name 2>/dev/null | grep -Fxq "$context"
 }
 
+# Prints the cluster reference (ARN or name) a kube context points to.
+# Prints nothing when kubectl is absent or the context cannot be resolved.
+_kubeconfig_context_cluster() {
+  local context="$1"
+  command -v kubectl >/dev/null 2>&1 || return 0
+  kubectl config view -o "jsonpath={.contexts[?(@.name==\"${context}\")].context.cluster}" 2>/dev/null || true
+}
+
+# Returns 1 only when the context demonstrably points to a different cluster.
+# If the target cannot be determined, the context is trusted (legacy behaviour).
+_kubeconfig_context_matches_cluster() {
+  local context="$1"
+  local cluster="$2"
+  local target
+  target="$(_kubeconfig_context_cluster "$context")"
+  [[ -z "$target" || "$target" == "$cluster" || "$target" == */"$cluster" ]]
+}
+
 _eks_update_kubeconfig() {
   local profile="$1"
   local cluster="$2"
   local region="${3:-$DEFAULT_REGION}"
+  local context="$profile"
 
-  if _kubeconfig_context_exists "$profile"; then
-    log "Kubeconfig context already exists for cluster: $cluster, switching to context: $profile"
-    kubectl config use-context "$profile" >/dev/null || die "Failed to switch to kube context: $profile"
+  # The profile-named context may belong to another cluster of the same account
+  # (e.g. blue/green). Use a cluster-specific context name in that case instead
+  # of silently switching to the wrong cluster.
+  if _kubeconfig_context_exists "$context" && ! _kubeconfig_context_matches_cluster "$context" "$cluster"; then
+    context="${profile}-${cluster}"
+  fi
+
+  if _kubeconfig_context_exists "$context"; then
+    log "Kubeconfig context already exists for cluster: $cluster, switching to context: $context"
+    kubectl config use-context "$context" >/dev/null || die "Failed to switch to kube context: $context"
     return 0
   fi
 
   log "Updating kubeconfig for cluster: $cluster"
-  if AWS_PAGER="" aws --profile "$profile" eks update-kubeconfig --region "$region" --name "$cluster" --alias "$profile" >/dev/null 2>/tmp/kubeconfig_debug.log; then
-    log "Kubeconfig updated successfully"
+  if AWS_PAGER="" aws --profile "$profile" eks update-kubeconfig --region "$region" --name "$cluster" --alias "$context" >/dev/null 2>/tmp/kubeconfig_debug.log; then
+    log "Kubeconfig updated successfully (context: $context)"
   else
     die "Failed to update kubeconfig for cluster: $cluster"
   fi
