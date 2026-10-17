@@ -1,14 +1,14 @@
 # AGENTS.md
 
 ## Overview
-This repository contains a Bash CLI script (`awx`) for lightweight AWS profile and EKS kubeconfig management. The project is designed to be a minimal, single-file, dependency-light solution. A `Makefile` provides a standardized interface for common development workflows (testing, linting, installation). This guide describes validation steps, code contribution style, and Bash best practices for all agentic coding agents contributing here.
+This repository contains a Bash CLI script (`awx`). The script manages AWS profiles and EKS kubeconfig files. The project is small. It has one file and few dependencies. A `Makefile` gives one interface for the common development tasks (test, lint, install). This guide tells all coding agents how to validate changes, how to write code, and which Bash practices to follow.
 
 ---
 
 ## 🚀 Build, Lint, and Test Commands
 
 ### Makefile (recommended)
-A `Makefile` is provided as the primary interface for common development tasks:
+Use the `Makefile` as the main interface for development tasks:
 
 | Command        | Description                              |
 |----------------|------------------------------------------|
@@ -21,39 +21,39 @@ A `Makefile` is provided as the primary interface for common development tasks:
 | `make clean`   | Remove pre-commit cache and temp files   |
 
 ### Pre-commit GitHub Actions (GHA)
-- Automated formatting and lint checks are enforced via [pre-commit](https://pre-commit.com/) GitHub Actions on commits and pull requests.
-- The [`pre-commit`](.github/workflows/pre-commit.yml) workflow must pass: it runs hooks for code formatting, shell style, and basic static checks across all supported Python versions (for relevant hooks).
-- To check your changes locally, run `make lint` or `pre-commit run --all-files` before pushing.
-- Developers are required to execute this command before committing or pushing any changes.
-- All contributors are expected to resolve pre-commit issues before submitting PRs.
+- The [pre-commit](https://pre-commit.com/) GitHub Actions workflow checks formatting and lint on each commit and pull request.
+- The [`pre-commit`](.github/workflows/pre-commit.yml) workflow must pass. It runs hooks for code formatting, shell style, and basic static checks.
+- Before you push, run `make lint` or `pre-commit run --all-files`.
+- You must run this command before you commit or push any change.
+- Fix all pre-commit errors before you submit a PR.
 
 ### Building
-- **No build step required.** Place/modify the single `awx` executable script in the project root. It is directly runnable.
-- Grant execute permission if necessary:
+- **No build step is necessary.** Put the single `awx` executable script in the project root. You can run it directly.
+- If necessary, give it execute permission:
   ```bash
   chmod +x awx
   ```
 
 ### Linting & Shell Style Checking
-While there are no explicit linter configs, you are encouraged to validate shell scripts with the following tools (run manually):
+The project has no linter configuration files. We recommend that you check shell scripts with these tools (run them manually):
 - **ShellCheck static analysis**
   ```bash
   shellcheck awx
   ```
-- **Bash strict mode** is enforced within the script (`set -euo pipefail`). All new code must preserve and not weaken strict mode discipline.
+- **Bash strict mode** is on in the script (`set -euo pipefail`). New code must keep strict mode. Do not make it weaker.
 
 ### Testing (Automated Framework)
-While manual validation is always valuable, the project now incorporates a `bats-core` test framework for automated command verification.
+Manual validation is useful. The project also uses the `bats-core` test framework for automated command checks.
 
 ### Running Tests with `bats`
-1. Ensure you have the `bats-core` framework installed:
+1. Install the `bats-core` framework:
    ```bash
    curl -fsSL https://github.com/bats-core/bats-core/archive/refs/heads/master.zip -o bats.zip
    unzip bats.zip && cd bats-core-master && ./install.sh ~/bats-local && cd ..
    rm -rf bats.zip bats-core-master
    export PATH=$HOME/bats-local/bin:$PATH
    ```
-2. Navigate to the project root and run all tests:
+2. Go to the project root and run all tests:
    ```bash
    bats tests
    ```
@@ -63,37 +63,37 @@ While manual validation is always valuable, the project now incorporates a `bats
    ok 1 awx whoami with valid AWS_PROFILE
    not ok 2 awx whoami with missing AWS_PROFILE
    ```
-3. For individual tests, specify the filename explicitly:
+3. To run one test file, give the file name:
    ```bash
    bats tests/whoami.bats
    ```
 
-This framework ensures reproducible test coverage across edge cases, missing dependencies, and standard command validations.
+The tests give repeatable coverage of edge cases, missing dependencies, and standard commands.
 
 #### Simulating Error Paths
 - Unset environment variables: `unset AWS_PROFILE`
-- Move/remove dependencies: `mv $(which fzf) ~/fzf.tmp`
+- Move or remove dependencies: `mv $(which fzf) ~/fzf.tmp`
 
 ---
 
 ## 🖋️ Coding and Code Style Guidelines
 
 ### General Principles
-- **DRY Principle**: Adhere to "Don't Repeat Yourself" to reduce code duplication and ensure maintainability.
-- **Bash-only**: All project logic is in Bash, with no external syntax (Python, JS, etc.)
-- **Minimal dependencies**: Only common CLIs (`aws`, `fzf`, `jq`) are depended on as hard requirements. `kubectl` is an optional dependency used for fast context switching—do not add new dependencies without justification.
-- **One-file approach**: Unless explicitly required, do not split code into new files/scripts.
-- **Error-first logic**: Fail early (using `die`); every critical external call is guarded.
+- **DRY Principle**: Follow "Don't Repeat Yourself". This reduces duplicate code and makes maintenance easier.
+- **Bash-only**: Write all project logic in Bash. Do not use other languages (Python, JS, etc.).
+- **Minimal dependencies**: The hard requirements are the common CLIs `aws`, `fzf`, and `jq`. `kubectl` is optional. It gives fast context changes. Do not add new dependencies without a reason.
+- **One-file approach**: Do not split the code into new files or scripts, unless a requirement says so.
+- **Error-first logic**: Fail early (use `die`). Guard each critical external call.
 
 ### Formatting and Structure
 - **Indentation**: 2 spaces (no tabs).
-- **Quoting**: Always use double quotes for strings and variables (e.g., "$var"). Single quotes only for literals.
-- **Function Names**: Lowercase with underscores (e.g., `log`, `require_cmd`).
-- **Variable Names**: Lowercase with underscores, except exported environment variables, which are uppercase (e.g., `AWS_PROFILE`, `DEFAULT_REGION`).
-- **Constants**: Use all-uppercase for exported or global configuration variables (e.g., `DEFAULT_REGION`).
-- **Logging/Errors**: Always use standardized `log`, `warn`, or `error`/`die` functions. Do not echo to stderr directly.
-- **Strict Mode**: Begin scripts with `set -euo pipefail` unless there is a good reason to relax it (which should be justified in comments).
-- **Functions**: Use POSIX-compliant function definitions whenever possible:
+- **Quoting**: Always use double quotes for strings and variables (for example, "$var"). Use single quotes only for literals.
+- **Function Names**: Use lowercase with underscores (for example, `log`, `require_cmd`).
+- **Variable Names**: Use lowercase with underscores. Exported environment variables use uppercase (for example, `AWS_PROFILE`, `DEFAULT_REGION`).
+- **Constants**: Use all-uppercase for exported or global configuration variables (for example, `DEFAULT_REGION`).
+- **Logging/Errors**: Always use the standard `log`, `warn`, or `error`/`die` functions. Do not write to stderr directly with `echo`.
+- **Strict Mode**: Begin scripts with `set -euo pipefail`. Relax it only for a good reason. Explain the reason in a comment.
+- **Functions**: Use POSIX-compliant function definitions when possible:
   ```bash
   my_func() {
     # ...
@@ -102,32 +102,32 @@ This framework ensures reproducible test coverage across edge cases, missing dep
 - **No trailing whitespace** at the end of lines.
 
 ### Imports & Sourcing
-- This project does **not** use external includes or sourcing; all code should exist within the one script file.
+- This project does **not** use external includes or sourcing. All code must stay in the one script file.
 
 ### Error Handling
-- All error conditions should trigger immediate and clear error messages (using `die` or `error`).
-- If a subcommand is called without required context (e.g., `AWS_PROFILE` is not set), fail with message and nonzero exit code.
-- Always check exit status of critical commands, especially external CLI calls.
+- Each error condition must cause an immediate and clear error message (use `die` or `error`).
+- If a user runs a subcommand without the required context (for example, `AWS_PROFILE` is not set), the command must fail with a message and a nonzero exit code.
+- Always check the exit status of critical commands, especially external CLI calls.
 - Always check for required dependencies at script entry.
-- Use `|| die "..."` after any command that must not fail.
+- Use `|| die "..."` after each command that must not fail.
 
 ### README
 
-Update the README after each feature completion (never use em dashes).
+Update the README after you complete each feature (do not use em dashes).
 Add new features to the section Features.
-Update usage if CLI usage changed or improved.
+Update the usage section when the CLI usage changes.
 
 ---
 
 ## 📝 Git Workflow
 
 ### Branch Naming Convention
-- **Feature branches**: `feat-<featureName>` (e.g., `feat-add-eks-support`)
-- **Bug fix branches**: `fix-<bugName>` (e.g., `fix-profile-loading`)
-- **Never commit directly to `main` or `dev`** branches
+- **Feature branches**: `feat-<featureName>` (for example, `feat-add-eks-support`)
+- **Bug fix branches**: `fix-<bugName>` (for example, `fix-profile-loading`)
+- **Never commit directly to the `main` or `dev`** branches
 
 ### Commit Message Format
-All commits must follow [Conventional Commits](https://www.conventionalcommits.org/) specification:
+All commits must follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
 ```
 <type>(<scope>): <subject>
 
@@ -139,11 +139,11 @@ All commits must follow [Conventional Commits](https://www.conventionalcommits.o
 **Types:**
 - `feat`: A new feature
 - `fix`: A bug fix
-- `docs`: Documentation only changes
-- `style`: Changes that don't affect code meaning (whitespace, formatting, missing semicolons, etc.)
-- `refactor`: Code change that neither fixes a bug nor adds a feature
-- `perf`: Code change that improves performance
-- `test`: Adding or updating tests
+- `docs`: Documentation changes only
+- `style`: Changes that do not affect the meaning of the code (whitespace, formatting, missing semicolons, etc.)
+- `refactor`: A code change that does not fix a bug and does not add a feature
+- `perf`: A code change that improves performance
+- `test`: Add or update tests
 
 **Examples:**
 - `feat(eks): add cluster update command`
@@ -152,45 +152,45 @@ All commits must follow [Conventional Commits](https://www.conventionalcommits.o
 - `refactor: consolidate profile selection logic`
 
 ### Workflow Steps
-1. Create a new branch from `main` or `dev` (depending on the common last root) using the naming convention above
-2. Implement your changes
-3. Run `make dev` to verify your local toolchain
-4. Ensure all pre-commit checks pass: `make lint` (or `pre-commit run --all-files`)
-5. Commit with a descriptive message following Conventional Commits
-6. Push your branch and create a pull request
-7. Do not merge without approval from maintainers
+1. Create a new branch from `main` or `dev` (use the one with the most recent common root). Use the naming convention above.
+2. Make your changes.
+3. Run `make dev` to check your local toolchain.
+4. Make sure that all pre-commit checks pass: `make lint` (or `pre-commit run --all-files`).
+5. Commit with a descriptive message that follows Conventional Commits.
+6. Push your branch and create a pull request.
+7. Do not merge without approval from the maintainers.
 
 ---
 
 ## 🏷️ Naming Conventions
-- **Functions**: all lower_snake_case (e.g. `list_clusters`, `select_profile`).
-- **Variables**: lower_snake_case for locals, UPPER_SNAKE_CASE for env or exported values.
+- **Functions**: all lower_snake_case (for example, `list_clusters`, `select_profile`).
+- **Variables**: lower_snake_case for locals, UPPER_SNAKE_CASE for environment or exported values.
 - **Subcommands**: `use`, `whoami`, `eks list`, `eks update`.
 
 ---
 
 ## 🛑 What Not To Do
-- Do **not** break single-file nature of the `awx` script without express reason.
+- Do **not** break the single-file structure of the `awx` script without an explicit reason.
 - Do **not** relax Bash strict mode.
-- Do **not** add dependency on shell features beyond bash POSIX compatibility.
+- Do **not** depend on shell features that are not in Bash or POSIX.
 - Do **not** add new language runtimes (Python, Node, etc.) to the core toolchain.
 
 ---
 
 ## 🤖 Automated Agent Responsibility Checklist
-- [ ] Run `shellcheck awx`, resolve warnings and errors
-- [ ] Validate strict mode conformance (`set -euo pipefail`), do not weaken
-- [ ] Preserve function/variable naming conventions
+- [ ] Run `shellcheck awx`. Fix all warnings and errors.
+- [ ] Make sure that the code follows strict mode (`set -euo pipefail`). Do not make it weaker.
+- [ ] Keep the function and variable naming conventions
 - [ ] Validate each feature with the given tests in tests/
-- [ ] Preserve/expand logging consistency across all output
-- [ ] Keep all code in a single file unless justified
-- [ ] Document all new command-line options in usage output and this file
-- [ ] Do not introduce silent failures: all error conditions are surfaced
-- [ ] Confirm that all dependencies (aws, fzf, jq) are required and checked; kubectl is optional but must be handled gracefully when absent
-- [ ] Run pre-commit run --all-files after each change in bash/shell scripts
+- [ ] Keep the logging consistent across all output. Expand it where necessary.
+- [ ] Keep all code in one file, unless there is a reason
+- [ ] Document each new command-line option in the usage output and in this file
+- [ ] Do not add silent failures. Show all error conditions.
+- [ ] Make sure that all dependencies (aws, fzf, jq) are required and checked. `kubectl` is optional. The script must work correctly when `kubectl` is not installed.
+- [ ] Run `pre-commit run --all-files` after each change in bash/shell scripts
 - [ ] Update README.md and AGENTS.md after each feature addition
 
 ---
 
 ## 📜 License reminder
-This project is open-source under MIT. All agents must respect this license, and all contributions must be compatible with MIT license conditions.
+This project is open-source under the MIT license. All agents must respect this license. All contributions must be compatible with the MIT license conditions.

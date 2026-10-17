@@ -12,23 +12,23 @@ _Blazingly Fast AWS Profile & EKS Context Switcher_
 
 ## Overview
 
-`awx` is a minimal Bash CLI to streamline AWS profile switching and EKS kubeconfig management for multi-account AWS setups. It supports both SSO-based and static credential profiles transparently.
+`awx` is a small Bash CLI. It helps you change AWS profiles and manage EKS kubeconfig files in multi-account AWS setups. It works with SSO profiles and with static credential profiles.
 
 ## Features
 
-- Fuzzy, interactive AWS profile selection via [`fzf`](https://github.com/junegunn/fzf) but also non-interactive mode: `awx use --profile X --cluster Y` for scripts and automation
-- Toggle back to the previous AWS profile and EKS cluster with **`awx -`** (like `cd -`)
-- Switch between existing kubeconfig contexts interactively with **`awx ctx`**
-- Zsh tab completion for commands, subcommands, and AWS profile names
-- Automatic SSO session re-authentication on every profile switch: if your session expires mid-day, `awx` detects it and re-authenticates transparently, with graceful fallback to static credentials when SSO fails
-- EKS kubeconfig management with caching that skips redundant updates when the target context already exists
-- Lists all configured AWS profiles with `ACTIVE`/`EXPIRED` session status and remaining SSO session lifetime via **`awx profiles`**
-- Display the active profile, region, and EKS cluster with **`awx current`**
-- Reset environment and clear cached data with **`awx clear`**
-- Force refresh of SSO session with **`awx refresh`**
+- Select an AWS profile interactively with [`fzf`](https://github.com/junegunn/fzf). A non-interactive mode is also available for scripts and automation: `awx use --profile X --cluster Y`
+- Go back to the previous AWS profile and EKS cluster with **`awx -`** (like `cd -`)
+- Change between existing kubeconfig contexts with **`awx ctx`**
+- Use Zsh tab completion for commands, subcommands, and AWS profile names
+- Re-authenticate the SSO session automatically on each profile change. If your session expires during the day, `awx` finds this and logs you in again. If SSO fails, `awx` uses static credentials when they are available
+- Manage the EKS kubeconfig with a cache. The cache skips an update when the target context already exists
+- Show all configured AWS profiles with their `ACTIVE` or `EXPIRED` session status and the remaining SSO session time with **`awx profiles`**
+- Show the active profile, region, and EKS cluster with **`awx current`**
+- Reset the environment and delete cached data with **`awx clear`**
+- Force a refresh of the SSO session with **`awx refresh`**
 
 ## Usage
-`awx` is a versatile script for managing AWS profiles and EKS kubeconfig contexts. Below are the primary commands and their purposes:
+Use `awx` to manage AWS profiles and EKS kubeconfig contexts. These are the main commands:
 
 ```sh
 # Interactive mode (prompts with fuzzy finder)
@@ -72,25 +72,25 @@ $ awx
 
 ### Quick Install (recommended)
 
-Install `awx` with a single command:
+Install `awx` with one command:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/cschindlbeck/awx/main/install.sh | bash
 ```
 
-The script will:
-- Download `awx` to `~/.local/bin/awx`
-- Add a `source` line to your shell config (`~/.zshrc` or `~/.bashrc`)
-- Auto-install Zsh completions if Oh My Zsh is detected
+The script does these steps:
+- It downloads `awx` to `~/.local/bin/awx`.
+- It adds a `source` line to your shell config (`~/.zshrc` or `~/.bashrc`).
+- It installs the Zsh completions automatically when Oh My Zsh is present.
 
-Then reload your shell and verify:
+Then reload your shell and make sure that `awx` works:
 
 ```bash
 source ~/.zshrc   # or ~/.bashrc
 awx help
 ```
 
-To update `awx` at any time after installation:
+To update `awx` after installation, run:
 
 ```bash
 awx update
@@ -106,7 +106,7 @@ awx update
 | `BRANCH`             | `main`              | GitHub branch to fetch from                          |
 | `NO_MODIFY_SHELL_RC` | `false`             | Set to `true` to skip shell config modification      |
 
-Example: install to a custom directory without modifying the shell config:
+Example: install to a custom directory and do not change the shell config:
 
 ```bash
 INSTALL_DIR=~/bin NO_MODIFY_SHELL_RC=true \
@@ -119,7 +119,7 @@ INSTALL_DIR=~/bin NO_MODIFY_SHELL_RC=true \
 - [AWS CLI](https://aws.amazon.com/cli/)
 - [fzf](https://github.com/junegunn/fzf)
 - [jq](https://jqlang.org/)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) _(optional but recommended — enables fast context switching without a full `aws eks update-kubeconfig` call)_
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) _(optional but recommended: it gives fast context changes without a full `aws eks update-kubeconfig` call)_
 
 #### 2. Clone and Set Up
 ```sh
@@ -130,7 +130,7 @@ cd awx
 make install
 
 # Step 2: Add to your shell config (~/.zshrc or ~/.bashrc)
-# This is REQUIRED so that AWS_PROFILE persists in your shell session
+# This is REQUIRED so that AWS_PROFILE stays set in your shell session
 source "$HOME/.local/bin/awx"
 
 # Then reload your shell
@@ -140,11 +140,11 @@ source ~/.zshrc   # or ~/.bashrc
 # ln -s $(pwd)/awx ~/.oh-my-zsh/custom/awx.zsh
 ```
 
-**Why sourcing is required:** `awx` needs to run in your shell's current process to modify environment variables like `AWS_PROFILE`. If executed as a subprocess (without sourcing), any environment changes are lost when the process exits. Sourcing the script defines the `awx()` function in your current shell, making your AWS profile switches persist.
+**Why you must source the script:** `awx` must run in the current process of your shell. This is how it can change environment variables such as `AWS_PROFILE`. A subprocess loses all environment changes when it exits. When you source the script, it defines the `awx()` function in your current shell. Then your AWS profile changes stay active.
 
 #### 3. Shell Completion (Zsh)
 
-Tab-completes commands, subcommands, and AWS profile names.
+Tab completion works for commands, subcommands, and AWS profile names.
 
 **Plain zsh** (add to `~/.zshrc`):
 ```zsh
@@ -161,10 +161,10 @@ cp completions/_awx ~/.oh-my-zsh/completions/
 
 ## Testing and Quality
 
-This project uses automated tests and pre-commit hooks that run in CI to ensure code quality and correct behavior.
-**All contributors should run both locally before pushing or submitting a pull request.**
+This project uses automated tests and pre-commit hooks. They run in CI to keep the code quality high and the behavior correct.
+**All contributors must run both locally before they push or submit a pull request.**
 
-A `Makefile` provides a single, discoverable interface for the most common development workflows:
+A `Makefile` gives one interface for the common development tasks:
 
 | Command        | Description                              |
 |----------------|------------------------------------------|
@@ -177,7 +177,7 @@ A `Makefile` provides a single, discoverable interface for the most common devel
 | `make clean`   | Remove pre-commit cache and temp files   |
 
 ### 1. Automated Tests (bats)
-- The main suite is written in `bats-core`. To use:
+- The main test suite uses `bats-core`. To install it:
 
   **On macOS:**
   ```bash
@@ -192,15 +192,15 @@ A `Makefile` provides a single, discoverable interface for the most common devel
   export PATH=$HOME/bats-local/bin:$PATH
   ```
 
-- To run all tests via Make:
+- To run all tests with Make:
   ```bash
   make test
   ```
-- Or run bats directly:
+- To run bats directly:
   ```bash
   bats tests
   ```
-- Run an individual test file:
+- To run one test file:
   ```bash
   bats tests/whoami.bats
   ```
@@ -214,35 +214,35 @@ not ok 2 awx whoami with missing AWS_PROFILE
 ```
 
 ### 2. Pre-commit Hooks
-Automated quality checks, formatting, and linting are enforced by [pre-commit](https://pre-commit.com/).
+[pre-commit](https://pre-commit.com/) enforces automated quality checks, formatting, and linting.
 
-- To run pre-commit hooks via Make:
+- To run the pre-commit hooks with Make:
   ```sh
   make lint
   ```
-- Or run pre-commit directly:
+- To run pre-commit directly:
   ```sh
   pre-commit run --all-files
   ```
-- These hooks run automatically on commit/pull request via GitHub Actions. **You must pass these checks for your contributions to be accepted.**
+- GitHub Actions runs these hooks automatically on each commit and pull request. **Your contribution is only accepted when these checks pass.**
 
-**Best practice: Always run `make check` before committing or opening a PR.**
+**Best practice: Always run `make check` before you commit or open a PR.**
 
 ## Tips & Behavior
-- If required tools (`aws`, `fzf`, or `jq`) are missing, `awx` will tell you exactly what to install.
-- `kubectl` is an optional but recommended dependency. When present, `awx` skips `aws eks update-kubeconfig` if the target context (named after the profile) already exists in your kubeconfig, and instead calls `kubectl config use-context` directly — significantly reducing latency on repeated calls. Without `kubectl`, a full `aws eks update-kubeconfig` is always run.
-- `kubeconfig` is updated *per profile*; back up your old file if you need persistent custom setups.
-- **Credential detection is automatic**: `awx` checks for `sso_start_url` to detect SSO profiles and `aws_access_key_id` for static credentials. No manual configuration required.
-- If a profile has both SSO and static credentials configured, SSO is attempted first. On SSO failure, `awx` falls back to static credentials automatically.
-- Defaults to region from `AWS_REGION`, falling back to `eu-central-1` if unset.
-- EKS cluster results are cached per profile under `$XDG_CACHE_HOME/awx/` (falls back to `~/.cache/awx/`). The default TTL is 8 hours (480 minutes) and can be overridden with `AWX_CACHE_TTL=<minutes>`.
+- If the tools `aws`, `fzf`, or `jq` are not installed, `awx` tells you which tool to install.
+- `kubectl` is optional but recommended. When `kubectl` is installed and the target context (named after the profile) exists in your kubeconfig, `awx` does not run `aws eks update-kubeconfig`. It runs `kubectl config use-context` instead. This reduces the delay on repeated calls. When `kubectl` is not installed, `awx` always runs a full `aws eks update-kubeconfig`.
+- `awx` updates the `kubeconfig` *per profile*. Make a backup of your old file if you need persistent custom setups.
+- **Credential detection is automatic**: `awx` looks for `sso_start_url` to find SSO profiles. It looks for `aws_access_key_id` to find static credentials. You do not need to configure anything.
+- If a profile has SSO and static credentials, `awx` tries SSO first. If SSO fails, `awx` uses the static credentials.
+- The region comes from `AWS_REGION`. If `AWS_REGION` is not set, the default is `eu-central-1`.
+- `awx` caches EKS cluster results for each profile in `$XDG_CACHE_HOME/awx/`. If `XDG_CACHE_HOME` is not set, it uses `~/.cache/awx/`. The default TTL is 8 hours (480 minutes). To change it, set `AWX_CACHE_TTL=<minutes>`.
 
 ## Contributing
-Contributions, issues, and PRs are welcome!
+We welcome contributions, issues, and PRs.
 
 To develop locally:
-1. Fork & clone.
-2. Install dependencies (see above).
-3. Run `make dev` to verify your local toolchain.
-4. Make changes on a new branch.
-5. Run `make check` before opening a PR (runs tests and lint together).
+1. Fork and clone the repository.
+2. Install the dependencies (see above).
+3. Run `make dev` to check your local toolchain.
+4. Make your changes on a new branch.
+5. Run `make check` before you open a PR. It runs the tests and the lint together.

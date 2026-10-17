@@ -11,12 +11,12 @@ DEFAULT_REGION="${DEFAULT_REGION:-${AWS_REGION:-eu-central-1}}"
 DEBUG="${DEBUG:-false}" # Enable debug mode for troubleshooting
 
 # ---------------------------------------------------------------------------
-# Colour support - re-checked on every log/warn/error call, not once at
-# source time. `awx` is meant to be sourced from shell rc files, and some
-# init tooling (e.g. Powerlevel10k's instant prompt) temporarily redirects
-# stdout to a buffer file while the rc file is still being processed. Caching
-# a single `-t 1` check made colouring depend on shell-startup timing instead
-# of the actual terminal; checking per call reflects the real state.
+# Colour support: check again on each log/warn/error call, not once at
+# source time. Users source `awx` from shell rc files. Some init tools
+# (for example the Powerlevel10k instant prompt) send stdout to a buffer
+# file while the shell reads the rc file. A single cached `-t 1` check made
+# the colour depend on the shell startup time and not on the real terminal.
+# A check on each call shows the real state.
 # ---------------------------------------------------------------------------
 COL_INFO=""
 COL_WARN=""
@@ -44,13 +44,13 @@ AWX_NO_ASCII="${AWX_NO_ASCII:-false}"                          # Set to "true" t
 AWX_SSO_CACHE_DIR="${AWX_SSO_CACHE_DIR:-$HOME/.aws/sso/cache}" # SSO token cache directory
 
 # ---------------------------------------------------------------------------
-# EKS cluster cache — avoids repeated AWS API calls
+# EKS cluster cache: prevents repeated AWS API calls
 # ---------------------------------------------------------------------------
 AWX_CACHE_DIR="${AWX_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/awx}"
 AWX_CACHE_TTL="${AWX_CACHE_TTL:-480}" # Cache TTL in minutes (default: 8h)
 
 # ---------------------------------------------------------------------------
-# State management — persists current/previous environment for `awx -`
+# State management: saves the current and previous environment for `awx -`
 # ---------------------------------------------------------------------------
 AWX_STATE_DIR="${AWX_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/awx}"
 AWX_STATE_FILE="${AWX_STATE_FILE:-$AWX_STATE_DIR/env}"
@@ -59,7 +59,7 @@ _awx_state_ensure_dir() {
   mkdir -p "$(dirname "$AWX_STATE_FILE")"
 }
 
-# Write a new current env, rotating previous.
+# Write a new current env. The old current env becomes the previous env.
 # Usage: _awx_state_write <profile> <cluster>
 _awx_state_write() {
   local profile="$1"
@@ -75,8 +75,8 @@ _awx_state_write() {
   printf "%s\n%s\n" "${profile},${cluster}" "${prev_current}" >"$AWX_STATE_FILE"
 }
 
-# Read the previous environment line. Prints "profile,cluster", empty string, or blank line.
-# Callers must guard against empty/blank results.
+# Read the previous environment line. Prints "profile,cluster", an empty string, or a blank line.
+# Callers must handle empty and blank results.
 _awx_state_read_previous() {
   if [[ ! -f "$AWX_STATE_FILE" ]]; then
     return 0
@@ -114,7 +114,7 @@ check_deps() {
   require_cmd jq
 }
 
-# Polls STS until it succeeds or AWX_STS_RETRIES attempts are exhausted.
+# Poll STS until it succeeds or AWX_STS_RETRIES attempts are used.
 _awx_wait_for_sts() {
   local profile="$1"
   local i
@@ -128,10 +128,10 @@ _awx_wait_for_sts() {
   return 1
 }
 
-# Removes the local SSO token cache. A cached token that is not yet past its
-# expiry can make `aws sso login` silently no-op even when the session is
-# actually unusable (e.g. revoked server-side), so this is used to force a
-# real re-authentication.
+# Remove the local SSO token cache. A cached token that has not expired can
+# cause `aws sso login` to do nothing, also when the session is not usable
+# (for example when the server revoked it). This function forces a real
+# re-authentication.
 _awx_sso_cache_bust() {
   if [[ -d "$AWX_SSO_CACHE_DIR" ]]; then
     rm -rf "$AWX_SSO_CACHE_DIR"
@@ -141,68 +141,71 @@ _awx_sso_cache_bust() {
 aws_ensure_session() {
   local profile="$1"
 
-  # Detect SSO configuration for this profile
+  # Find the SSO configuration of this profile
   local sso_start_url
   sso_start_url="$(AWS_PAGER="" aws configure get sso_start_url --profile "$profile" 2>/dev/null || true)"
   sso_start_url="${sso_start_url// /}"
 
-  # Detect static credentials for this profile
+  # Find the static credentials of this profile
   local static_key
   static_key="$(AWS_PAGER="" aws configure get aws_access_key_id --profile "$profile" 2>/dev/null || true)"
   static_key="${static_key// /}"
 
   if [[ -n "$sso_start_url" ]]; then
-    # SSO-based profile: verify or establish SSO session
+    # SSO profile: verify the SSO session or start a new one
     if aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
       return 0
     fi
 
     log "SSO session expired or not authenticated for profile: $profile"
     if aws sso login --profile "$profile"; then
-      # Retry loop to wait for SSO credentials to propagate after login.
-      # AWX_STS_RETRIES attempts x 1s covers slow browser confirmation without hanging forever.
+      # Retry loop: wait for the SSO credentials to spread after login.
+      # AWX_STS_RETRIES attempts x 1s gives time for a slow browser confirmation.
+      # The loop does not wait forever.
       if _awx_wait_for_sts "$profile"; then
         return 0
       fi
 
-      # STS never stabilized. A locally-cached SSO token that isn't past its
-      # expiry can make `aws sso login` above silently no-op even though the
-      # session is actually unusable, so clear the cache once and retry
-      # before giving up. This avoids callers having to run 'awx logout' or
-      # 'awx refresh' manually to unstick it.
+      # STS did not stabilize. A cached SSO token that has not expired can
+      # cause the `aws sso login` above to do nothing, also when the session
+      # is not usable. Clear the cache one time and try again before you
+      # stop. This way the user does not need to run 'awx logout' or
+      # 'awx refresh' by hand.
       warn "SSO session still not ready; clearing local SSO token cache and retrying login..."
       _awx_sso_cache_bust
       if aws sso login --profile "$profile" && _awx_wait_for_sts "$profile"; then
         return 0
       fi
 
-      # SSO login succeeded but STS never stabilized even after a cache
-      # reset, fall back to static credentials if available
+      # The SSO login succeeded but STS did not stabilize, also after a cache
+      # reset. Use static credentials if they are available.
       if [[ -n "$static_key" ]]; then
         warn "SSO failed, falling back to static credentials for profile: $profile"
         return 0
       fi
 
-      # die() exits when standalone, returns 1 when sourced. The explicit
-      # return 1 after die() is a no-op for standalone (die already exited)
-      # but ensures the calling function returns when sourced.
+      # die() exits when the script runs standalone. It returns 1 when the
+      # script is sourced. In standalone mode the explicit return 1 after
+      # die() has no effect (die already exited). In sourced mode it makes
+      # the calling function return.
       die "SSO session not ready after login and cache reset. Please run 'awx use' again."
       return 1
     fi
 
-    # SSO login itself failed — fall back to static credentials if available
+    # The SSO login failed. Use static credentials if they are available.
     if [[ -n "$static_key" ]]; then
       warn "SSO failed, falling back to static credentials for profile: $profile"
       return 0
     fi
 
-    # die() exits when standalone, returns 1 when sourced. The explicit
-    # return 1 after die() is a no-op for standalone (die already exited)
-    # but ensures the calling function returns when sourced.
+    # die() exits when the script runs standalone. It returns 1 when the
+    # script is sourced. In standalone mode the explicit return 1 after
+    # die() has no effect (die already exited). In sourced mode it makes
+    # the calling function return.
     die "AWS SSO login failed for profile: $profile"
     return 1
   elif [[ -n "$static_key" ]]; then
-    # Static credential profile: use directly without SSO login
+    # Static credential profile: use the credentials directly, with no SSO login
     log "Using static credentials for profile: $profile"
     return 0
   else
@@ -228,9 +231,9 @@ select_profile() {
     return 1
   fi
 
-  # No newline in the string means exactly one profile — auto-select it.
-  # Command substitution strips trailing newlines, so a single profile
-  # yields "name" (no newline), while multiple profiles yield "a\nb".
+  # A string with no newline holds exactly one profile. Select it automatically.
+  # Command substitution removes trailing newlines. One profile gives
+  # "name" (no newline). Many profiles give "a\nb".
   if [[ "$profiles" != *$'\n'* ]]; then
     log "Auto-selecting the only available AWS profile: $profiles" >&2
     printf "%s\n" "$profiles"
@@ -277,7 +280,7 @@ validate_and_resolve_profile() {
   matches="$(grep -iF "$profile" <<<"$profiles" || true)"
 
   if [[ -n "$matches" ]]; then
-    # Auto-select when exactly one profile matches — consistent with select_profile()
+    # Select automatically when exactly one profile matches. This is the same as select_profile().
     if [[ "$matches" != *$'\n'* ]]; then
       log "Auto-selecting the only matching AWS profile: $matches" >&2
       printf "%s\n" "$matches"
@@ -304,12 +307,12 @@ list_clusters() {
   cache_file="$(_eks_cache_path "$profile")"
   err_file="$(mktemp)"
 
-  # Always validate SSO session before serving cached or live cluster data.
-  # This ensures re-authentication is triggered on every profile switch,
-  # not just when the EKS cluster cache is stale.
-  # stdout is redirected to stderr so that log messages (e.g. "SSO session
-  # expired") are shown to the user but do NOT flow into the stdout of this
-  # function, which callers capture via $() to parse cluster names.
+  # Always validate the SSO session before you return cached or live cluster data.
+  # This starts a re-authentication on each profile change,
+  # not only when the EKS cluster cache is old.
+  # stdout goes to stderr. This shows log messages (for example "SSO session
+  # expired") to the user. The messages do NOT enter the stdout of this
+  # function. Callers capture that stdout with $() to read the cluster names.
   aws_ensure_session "$profile" >&2 || {
     rm -f "$err_file"
     die "Session unavailable for profile: $profile"
@@ -378,8 +381,8 @@ select_cluster_for_profile() {
 
 _kubeconfig_context_exists() {
   local context="$1"
-  # Returns 0 only when kubectl is available AND the named context exists.
-  # If kubectl is absent the check is skipped and update-kubeconfig always runs.
+  # Return 0 only when kubectl is available AND the named context exists.
+  # If kubectl is not installed, skip the check. Then update-kubeconfig always runs.
   command -v kubectl >/dev/null 2>&1 &&
     kubectl config get-contexts -o name 2>/dev/null | grep -Fxq "$context"
 }
@@ -408,7 +411,7 @@ awx_use() {
   local cluster=""
   local fuzzy=0
 
-  # Parse optional flags; fall back to interactive when absent
+  # Read the optional flags. If a flag is not set, use interactive mode.
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --profile)
@@ -417,7 +420,7 @@ awx_use() {
         shift 2
         ;;
       --fuzzy-profile)
-        # Internal flag: profile shortcut (positional arg) — triggers fuzzy resolve
+        # Internal flag: profile shortcut (positional argument). It starts a fuzzy resolve.
         [[ -n "${2:-}" ]] || die "--fuzzy-profile requires a value"
         profile="$2"
         fuzzy=1
@@ -476,7 +479,7 @@ awx_whoami() {
 }
 
 # ---------------------------------------------------------------------------
-# Helpers for `awx profiles` session duration display
+# Helper functions to show the session duration for `awx profiles`
 # ---------------------------------------------------------------------------
 
 format_duration() {
@@ -646,9 +649,9 @@ awx_profiles() {
     profiles_out="$(aws configure list-profiles)" || die "Failed to list AWS profiles"
   fi
 
-  # Save existing INT trap and set our own so Ctrl+C breaks the loop cleanly.
-  # This is necessary when awx is sourced: the interactive shell's SIGINT only
-  # kills the foreground subprocess (aws sts), not the while loop itself.
+  # Save the existing INT trap and set our own trap. Then Ctrl+C stops the loop cleanly.
+  # This is necessary when awx is sourced: the SIGINT of the interactive shell only
+  # stops the foreground subprocess (aws sts). It does not stop the while loop.
   _prev_int_trap="$(trap -p INT)"
   trap '_awx_interrupted=1' INT
 
@@ -667,7 +670,7 @@ awx_profiles() {
     fi
   done <<<"$profiles_out"
 
-  # Restore the previous INT trap to leave the shell in a clean state
+  # Restore the previous INT trap. This leaves the shell in a clean state.
   if [[ -n "$_prev_int_trap" ]]; then
     eval "$_prev_int_trap"
   else
@@ -825,7 +828,7 @@ awx_prev() {
   local prev_line
   prev_line="$(_awx_state_read_previous)"
 
-  # Strip whitespace/blank lines
+  # Remove whitespace and blank lines
   prev_line="${prev_line#"${prev_line%%[![:space:]]*}"}"
   prev_line="${prev_line%"${prev_line##*[![:space:]]}"}"
 
@@ -842,24 +845,24 @@ awx_prev() {
   prev_profile="${prev_line%%,*}"
   prev_cluster="${prev_line#*,}"
 
-  # Guard against state file corruption where a command name was written as a
-  # profile (e.g. 'awx profiles' treated as a profile shortcut before the
-  # command was registered in the dispatcher).
+  # Protect against a corrupt state file. In the corrupt file, a command name
+  # is saved as a profile (for example, 'awx profiles' was a profile shortcut
+  # before the dispatcher knew the command).
   case "$prev_profile" in
     use | whoami | profiles | eks | logout | ctx | kubeconfig | help | - | current | clear | refresh)
-      die "State file contains reserved name '$prev_profile' as a profile — likely caused by sourcing an old version of awx. Delete $AWX_STATE_FILE to reset."
+      die "State file contains reserved name '$prev_profile' as a profile. An old version of awx probably caused this. Delete $AWX_STATE_FILE to reset."
       ;;
   esac
 
-  # Swap state lines: previous becomes current, current becomes previous
+  # Swap the state lines: previous becomes current and current becomes previous
   local current_line=""
   if [[ -f "$AWX_STATE_FILE" ]]; then
     current_line="$(head -1 "$AWX_STATE_FILE")"
   fi
   _awx_state_ensure_dir
-  # NOTE: state is swapped before kubeconfig update. If kubeconfig fails,
-  # the state file reflects the new environment even though kubeconfig was
-  # not updated. Run 'awx -' again to recover or manually run 'awx use'.
+  # NOTE: The state swap happens before the kubeconfig update. If the kubeconfig
+  # update fails, the state file shows the new environment but the kubeconfig
+  # is not updated. To recover, run 'awx -' again or run 'awx use' by hand.
   printf "%s\n%s\n" "$prev_line" "$current_line" >"$AWX_STATE_FILE"
 
   export AWS_PROFILE="$prev_profile"
@@ -954,12 +957,12 @@ awx() {
       awx_prev
       ;;
     --*)
-      # Top-level flags (e.g. awx --profile X) forwarded directly to awx_use.
+      # Pass top-level flags (for example awx --profile X) directly to awx_use.
       awx_use "$@"
       ;;
     *)
-      # Treat an unrecognised argument as a profile shortcut with fuzzy resolve.
-      # e.g. `awx my-profile` triggers fuzzy/partial profile matching
+      # Treat an unknown argument as a profile shortcut with fuzzy resolve.
+      # For example, `awx my-profile` starts fuzzy or partial profile matching.
       awx_use --fuzzy-profile "$command"
       ;;
   esac

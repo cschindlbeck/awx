@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# install.sh — one-line installer for awx
+# install.sh: one-line installer for awx
 #
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/cschindlbeck/awx/main/install.sh | bash
 #
 # Environment overrides (all optional):
-#   INSTALL_DIR          — destination directory          (default: ~/.local/bin)
-#   SHELL_RC             — shell config file to update    (default: auto-detected)
-#   COMPLETIONS_DIR      — directory for zsh completions  (default: auto-detected)
-#   BRANCH               — GitHub branch to fetch from    (default: main)
-#   NO_MODIFY_SHELL_RC   — set to "true" to skip rc edit  (default: false)
+#   INSTALL_DIR          : destination directory           (default: ~/.local/bin)
+#   SHELL_RC             : shell config file to update     (default: auto-detected)
+#   COMPLETIONS_DIR      : directory for zsh completions   (default: auto-detected)
+#   BRANCH               : GitHub branch to fetch from     (default: main)
+#   NO_MODIFY_SHELL_RC   : set to "true" to skip rc edit   (default: false)
 
 set -euo pipefail
 
@@ -20,7 +20,7 @@ INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local/bin}"
 AWX_DEST="${INSTALL_DIR}/awx"
 
 # ---------------------------------------------------------------------------
-# Color support — only emit escape codes when stdout is a TTY with 8+ colours
+# Color support: write escape codes only when stdout is a TTY with 8 or more colours
 # ---------------------------------------------------------------------------
 if [[ -t 1 ]] && tput colors &>/dev/null && [[ "$(tput colors)" -ge 8 ]]; then
   COL_INFO="$(tput setaf 2)"
